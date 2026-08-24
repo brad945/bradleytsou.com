@@ -445,7 +445,7 @@ export const favoriteGame = {
    * and the reason the panel is worth clicking at all.
    */
   url: "https://steamcommunity.com/workshop/filedetails/?id=3477187482",
-  blurb: "I really like this game.",
+  blurb: "I like this game",
 } as const;
 
 /**
