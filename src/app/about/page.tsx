@@ -147,7 +147,13 @@ export default async function About() {
           {/* <Reviews playtime={playtime} /> */}
           <Portfolio featured={featured} />
           {/* <Inventory /> */}
-          <Achievements />
+          {/*
+            **Achievements / Fun facts is hidden, not deleted**, at Bradley's
+            request — the same treatment Reviews and Inventory got above. The
+            component and every entry in `about-data` are untouched;
+            uncommenting this one line brings it back exactly as it was.
+          */}
+          {/* <Achievements /> */}
         </div>
 
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted/70">
