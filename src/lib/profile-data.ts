@@ -926,8 +926,19 @@ export const projects: Project[] = [
       "AI risk-defence agent that protects elderly users from financial scams — detects suspicious transactions and explains the risk in plain language. Built the entire frontend around accessibility for senior users: large type, guided voice, calm interface. 1st place at Cal Hacks 12.0 on the Bright Data track, out of 700 projects and 3,000+ participants.",
     rarity: "major",
     tags: ["Bright Data", "Fetch AI", "Fish Audio", "Claude"],
-    href: undefined,
-    repo: "https://github.com/aryan-gupta123/Guardian",
+    /*
+     * Devpost, from Bradley, and it replaces the GitHub link rather than
+     * sitting beside it — `href` wins over `repo` in `projectRow`, so leaving
+     * both would just have made the repo URL dead weight. The Devpost page is
+     * the better destination anyway: it's the writeup, and the repo belongs to
+     * a teammate.
+     *
+     * `ghRepo` stays. It's an API identifier, not a link, and it's what would
+     * attach live language and commits if this repo were ever added to
+     * `featuredRepos`.
+     */
+    href: "https://devpost.com/software/guardian-ai-powered-fraud-prevention-for-your-money",
+    repo: undefined,
     period: "2025",
   },
   {
