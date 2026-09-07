@@ -210,12 +210,27 @@ function ExtrudedMark() {
 export default function Model3D({
   src,
   mode,
+  zoom = 1,
+  onReady,
   className,
 }: {
   /** A `.glb` in `public/`. Omit to spin the extruded `bt.` mark instead. */
   src?: string;
   /** `"spin"` for a full turn, as the reference site does. See `Spin`. */
   mode?: "spin" | "rock";
+  /** >1 pulls the camera back, making the model smaller in frame. */
+  zoom?: number;
+  /**
+   * Fired once the renderer exists and has a frame.
+   *
+   * A caller that animates this into view needs it. `dynamic()` resolves the
+   * chunk and mounts the component, but WebGL setup and the first render come
+   * later — so a transition started on mount runs and finishes against an
+   * empty canvas, and the model then appears at its destination having
+   * travelled nowhere. That was exactly the bug: `MarkReveal` slid a box that
+   * was still empty.
+   */
+  onReady?: () => void;
   className?: string;
 }) {
   return (
@@ -227,8 +242,17 @@ export default function Model3D({
           that's nine times the pixels for no visible gain.
         */
         dpr={[1, 2]}
-        camera={{ position: [0, 0.6, 6.4], fov: 40 }}
+        camera={{ position: [0, 0.6 * zoom, 6.4 * zoom], fov: 40 }}
         gl={{ antialias: true, alpha: true }}
+        /*
+          `onCreated` fires after the renderer, scene and camera exist. One
+          more frame on top of that, because the callback runs before anything
+          has actually been drawn — a caller fading this in on `onCreated`
+          alone still gets one blank frame.
+        */
+        onCreated={() => {
+          if (onReady) requestAnimationFrame(() => onReady());
+        }}
       >
         {/*
           Everything below Suspense: the environment map and any `.glb` are

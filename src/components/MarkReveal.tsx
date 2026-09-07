@@ -55,15 +55,19 @@ const MIN_VW = 1180;
 export default function MarkReveal() {
   const [state, setState] = useState<"idle" | "out">("idle");
   /*
-   * Separate from `state` on purpose. Mounting an element already in its final
-   * position transitions nothing — the browser has no previous value to
-   * interpolate from. So it mounts closed, and `open` flips on the next frame,
-   * which is the change the transition actually runs on.
+   * Separate from `state`, and flipped by the model rather than by a timer.
    *
-   * `requestAnimationFrame` twice, not once: one frame schedules the paint,
-   * and the style has to have been *computed* in a frame before the change to
-   * be interpolable. A single rAF batches with the mount often enough to drop
-   * the animation intermittently, which is worse than dropping it always.
+   * Mounting an element already in its final position transitions nothing —
+   * there's no previous value to interpolate from — so it mounts closed and
+   * opens afterwards. The first version opened it on the next animation frame,
+   * and that was wrong in a way that looked like "no animation at all":
+   * `dynamic()` mounts the component, but fetching the chunk, initialising
+   * WebGL and drawing frame one all happen after that. The box slid on
+   * schedule while empty, finished, and *then* the model appeared — at its
+   * destination, having visibly travelled nowhere.
+   *
+   * `Model3D` reports `onReady` once it has actually rendered, and the slide
+   * starts from there. Slower to begin, but it's the model that moves.
    */
   const [open, setOpen] = useState(false);
 
@@ -76,14 +80,7 @@ export default function MarkReveal() {
   }, []);
 
   useEffect(() => {
-    if (state !== "out") {
-      setOpen(false);
-      return;
-    }
-    const id = requestAnimationFrame(() =>
-      requestAnimationFrame(() => setOpen(true)),
-    );
-    return () => cancelAnimationFrame(id);
+    if (state !== "out") setOpen(false);
   }, [state]);
 
   /*
@@ -139,7 +136,15 @@ export default function MarkReveal() {
           window.dispatchEvent(new CustomEvent("bt:reset"));
         }}
       >
-        <Model3D className="h-full w-full" />
+        {/*
+          `zoom` pulls the camera back rather than scaling the element: scaling
+          would blur the canvas, since it renders at its own pixel size.
+        */}
+        <Model3D
+          zoom={1.35}
+          onReady={() => setOpen(true)}
+          className="h-full w-full"
+        />
       </div>
     </div>
   );

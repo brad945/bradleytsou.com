@@ -9,29 +9,28 @@ import { profile } from "@/lib/profile-data";
  *
  * ## The gesture
  *
- * Hovering still plays `glyph-hop`, unchanged: b, then t, then the period,
- * 110ms apart, once per hover. Hovering it *again* while the page is at the
- * top runs `glyph-fall` instead, which is the same rise followed by a drop
- * that doesn't come back — the glyphs fall out of the nav, behind the profile
- * block, and `MarkReveal` slides the 3D mark out of the left column half a
- * second later.
+ * Hovering runs `glyph-fall`: the same rise `glyph-hop` always did, followed
+ * by a drop that doesn't come back. The glyphs fall out of the nav, vanish at
+ * its bottom edge, and `MarkReveal` slides the 3D mark out of the left column
+ * once it has loaded.
  *
- * The second hover is deliberate. A page-wide animation that fires the first
- * time a pointer crosses the top-left corner would go off constantly and by
- * accident; asking for the gesture twice makes it something you did.
+ * ## Where they disappear
  *
- * ## Why the glyphs land behind the profile block for free
+ * At the header bar's own edge, because the wrapper below stretches to the
+ * bar's full height and clips.
  *
- * Nothing here manages z-index, and nothing should. `<nav>` comes before
- * `<main>` in the document and neither sets a `z-index`, so `<main>` paints
- * later and therefore on top. A glyph leaving the nav is behind the profile
- * column the moment it crosses that edge, which is exactly the effect wanted —
- * an overlay with a stacking context, or a clipping wrapper, would both have
- * been ways of re-creating something the document already does.
+ * The first version let them fall past it and be covered by `<main>` instead,
+ * which is the same idea one element too late: `<main>` is a *centred* column,
+ * so it covers only the middle of the page, and the edge a reader actually
+ * sees is the bar's. Clipping on `<nav>` itself was the obvious next move and
+ * is wrong for a different reason — the balance's hover note is `absolute
+ * top-full` and hangs below the bar, so a clip there would cut it off. Hence a
+ * wrapper around the mark alone.
  *
- * The one requirement is that no ancestor clips: the svg carries
- * `overflow-visible` (it already had to, for the hop's rise), and the nav sets
- * no overflow of its own.
+ * `self-stretch` rather than a height: the bar's 104px lives in `SiteNav`, and
+ * repeating it here is a second place to update. Stretching to the flex line
+ * gets the same box and can't drift. The rise is safe either way — 34px of
+ * clearance above the mark against 11px of travel.
  *
  * ## The unit trap
  *
@@ -48,7 +47,6 @@ const UNITS_PER_PX = 292 / 36;
 export default function NavMark() {
   const ref = useRef<HTMLAnchorElement>(null);
   const [falling, setFalling] = useState(false);
-  const [armed, setArmed] = useState(false);
 
   /*
    * Reset when the sequence is dismissed, so the mark comes back. `MarkReveal`
@@ -56,20 +54,13 @@ export default function NavMark() {
    * than either component reaching into the other's state.
    */
   useEffect(() => {
-    const back = () => {
-      setFalling(false);
-      setArmed(false);
-    };
+    const back = () => setFalling(false);
     window.addEventListener("bt:reset", back);
     return () => window.removeEventListener("bt:reset", back);
   }, []);
 
   function onEnter() {
     if (falling) return;
-    if (!armed) {
-      setArmed(true);
-      return;
-    }
 
     /*
      * How far to fall: from the mark's own top edge to the top of the profile
@@ -102,37 +93,39 @@ export default function NavMark() {
   }
 
   return (
-    <a
-      ref={ref}
-      href="/#top"
-      aria-label={`${profile.name} — home`}
-      onPointerEnter={onEnter}
-      className="group/mark text-bright motion-reduce:transition-opacity motion-reduce:hover:opacity-80"
-    >
-      {/*
+    <span className="flex items-center self-stretch overflow-hidden">
+      <a
+        ref={ref}
+        href="/#top"
+        aria-label={`${profile.name} — home`}
+        onPointerEnter={onEnter}
+        className="group/mark text-bright motion-reduce:transition-opacity motion-reduce:hover:opacity-80"
+      >
+        {/*
         `overflow-visible` is not optional, and now for two reasons. The
         viewBox is the mark's exact ink bounds, so the svg's default
         `overflow: hidden` would shear the top off every hop — and it would
         clip the entire fall to 36px of travel.
       */}
-      <BtMark
-        width={50}
-        height={36}
-        className="block overflow-visible"
-        glyphClassName={
-          falling
-            ? {
-                b: "motion-safe:animate-glyph-fall",
-                t: "motion-safe:animate-glyph-fall-2",
-                dot: "motion-safe:animate-glyph-fall-3",
-              }
-            : {
-                b: "motion-safe:group-hover/mark:animate-glyph-hop",
-                t: "motion-safe:group-hover/mark:animate-glyph-hop-2",
-                dot: "motion-safe:group-hover/mark:animate-glyph-hop-3",
-              }
-        }
-      />
-    </a>
+        <BtMark
+          width={50}
+          height={36}
+          className="block overflow-visible"
+          glyphClassName={
+            falling
+              ? {
+                  b: "motion-safe:animate-glyph-fall",
+                  t: "motion-safe:animate-glyph-fall-2",
+                  dot: "motion-safe:animate-glyph-fall-3",
+                }
+              : {
+                  b: "motion-safe:group-hover/mark:animate-glyph-hop",
+                  t: "motion-safe:group-hover/mark:animate-glyph-hop-2",
+                  dot: "motion-safe:group-hover/mark:animate-glyph-hop-3",
+                }
+          }
+        />
+      </a>
+    </span>
   );
 }
