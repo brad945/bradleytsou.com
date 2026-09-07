@@ -40,7 +40,7 @@ export const revalidate = 300;
  * blank. Verified: I could not see its model until I re-ran Chrome with
  * software rendering. Something has to occupy the space.
  */
-const BtMark3D = dynamic(() => import("@/components/BtMark3D"), {
+const Model3D = dynamic(() => import("@/components/Model3D"), {
   ssr: false,
   loading: () => <p className="t-meta">Loading…</p>,
 });
@@ -73,14 +73,19 @@ export default async function Play() {
           */}
           <div className="flex min-h-[320px] flex-col items-center justify-center px-6 py-10">
             {/*
-              The mark, extruded and spinning — a prototype, and the reason
-              this page has anything on it at all. Hovering stops it.
+              A prototype, and the reason this page has anything on it at
+              all. Drag to rotate it.
+
+              No `src`, so it spins the extruded `bt.` mark and downloads no
+              model. Pass `src="/models/thing.glb"` to swap in a real one —
+              everything else about the scene is already what the reference
+              site runs.
 
               Sized in `vh` with a cap so it scales with the viewport rather
               than being pinned to a number, and a fixed aspect so the canvas
               never collapses while its chunk is still loading.
             */}
-            <BtMark3D className="h-[46vh] max-h-[420px] w-full" />
+            <Model3D className="h-[46vh] max-h-[420px] w-full" />
 
             {/*
               `font-sign`, the same face and treatment `BoardedUp` uses for the
