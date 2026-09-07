@@ -724,6 +724,36 @@ const config: Config = {
           "80%": { transform: "translateX(-1px) rotate(-0.5deg)" },
         },
 
+        /*
+         * The mark's glyphs falling out of the nav and down the page.
+         *
+         * Same shape as `glyph-hop` for its first half — the rise is
+         * identical, so triggering this mid-hover reads as the same gesture
+         * continuing rather than a second animation starting. Then instead of
+         * settling back to 0 it keeps going, accelerating, off the bottom.
+         *
+         * **`--fall` is in viewBox units, not pixels.** Transforms on an SVG
+         * child are in the units of its viewBox, and the mark's is 408x292
+         * rendered at 50x36 — so a pixel of screen travel is 292/36 ≈ 8.1
+         * units. `NavMark` does that conversion; nothing here should be read
+         * as a screen distance.
+         *
+         * `forwards` so the glyphs stay gone at the end. Without it they snap
+         * back into the nav the instant the animation finishes, which is the
+         * one thing this must not do — they are supposed to be behind the
+         * profile block now.
+         */
+        "glyph-fall": {
+          "0%": {
+            transform: "translateY(0)",
+            animationTimingFunction: "cubic-bezier(0.33, 0, 0.2, 1)",
+          },
+          "22%": {
+            transform: "translateY(-90px)",
+            animationTimingFunction: "cubic-bezier(0.55, 0, 1, 0.45)",
+          },
+          "100%": { transform: "translateY(var(--fall, 2000px))" },
+        },
         "glyph-hop": {
           "0%": {
             transform: "translateY(0)",
@@ -779,6 +809,15 @@ const config: Config = {
          * single cycle and rests — and moving off and back on restarts it,
          * because the class is removed and re-added.
          */
+        /*
+         * Three names again rather than one plus a delay utility, for the
+         * reason spelled out above `glyph-hop`: the `animation` shorthand
+         * resets `animation-delay`, and Tailwind emits the arbitrary-property
+         * rule first, so a separate delay silently loses.
+         */
+        "glyph-fall": "glyph-fall 1.15s forwards",
+        "glyph-fall-2": "glyph-fall 1.15s 110ms forwards",
+        "glyph-fall-3": "glyph-fall 1.15s 220ms forwards",
         "glyph-hop": "glyph-hop 0.9s",
         "glyph-hop-2": "glyph-hop 0.9s 110ms",
         "glyph-hop-3": "glyph-hop 0.9s 220ms",

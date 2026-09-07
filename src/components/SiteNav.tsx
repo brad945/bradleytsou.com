@@ -1,7 +1,7 @@
 import Image from "next/image";
+import NavMark from "@/components/NavMark";
 import type { GitHubStats } from "@/lib/github";
 import { accountBalance, profile } from "@/lib/profile-data";
-import BtMark from "@/components/BtMark";
 import HoverNote from "@/components/HoverNote";
 
 /**
@@ -111,51 +111,12 @@ export default function SiteNav({ stats }: { stats: GitHubStats | null }) {
           interactive element in the bar with no hover feedback at all.
         */}
         {/*
-          **`/#top`, not `/#profile`.** Pointing the mark at the profile
-          section scrolled the page down ~56px on every click, from the very
-          top, for no visible reason: the nav isn't sticky, so `#profile`
-          already sits ~120px into the document, and `scroll-padding-top: 64px`
-          parks it 64px from the viewport edge — swallowing over half the nav
-          you just clicked in.
-
-          `top` is a fragment the HTML spec resolves to the top of the document
-          when nothing has that id, so this needs no element to point at and no
-          JS. Keeping the leading `/` is what makes it work from `/play` too:
-          there it's a real navigation home rather than a scroll.
+          The mark. Its own component now, because the fall it triggers needs
+          state and a measurement at click time, and `SiteNav` is a server
+          component — see `NavMark`, which also carries the reasoning for
+          `/#top`, the per-glyph stagger and the `overflow-visible`.
         */}
-        <a
-          href="/#top"
-          aria-label={`${profile.name} — home`}
-          className="group/mark text-bright motion-reduce:transition-opacity motion-reduce:hover:opacity-80"
-        >
-          {/* `block` so the svg doesn't sit on a text baseline — inline it
-              would carry the line-box's descender space and ride high of the
-              nav items it's meant to be centred against. */}
-          {/*
-            Each glyph hops in turn rather than the mark hopping as a block,
-            staggered b -> t -> . like the animated favicon.
-
-            `overflow-visible` is not optional. The viewBox is the mark's exact
-            ink bounds, so the b's stem starts at y=0 and the svg's default
-            `overflow: hidden` would shear the top off every hop.
-
-            The stagger is three animation names rather than one name plus a
-            delay utility. A separate delay declaration loses to the
-            `animation` shorthand, which resets it — see the note in
-            tailwind.config.ts. That version looked right and hopped all three
-            glyphs at once.
-          */}
-          <BtMark
-            width={50}
-            height={36}
-            className="block overflow-visible"
-            glyphClassName={{
-              b: "motion-safe:group-hover/mark:animate-glyph-hop",
-              t: "motion-safe:group-hover/mark:animate-glyph-hop-2",
-              dot: "motion-safe:group-hover/mark:animate-glyph-hop-3",
-            }}
-          />
-        </a>
+        <NavMark />
 
         {/*
           `flex-1` + `justify-center` puts the items in the middle of the bar

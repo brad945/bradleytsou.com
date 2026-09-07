@@ -4,6 +4,7 @@ import BoardedUp from "@/components/BoardedUp";
 import Experience from "@/components/Experience";
 import FavoriteGame from "@/components/FavoriteGame";
 import ProfileHeader from "@/components/ProfileHeader";
+import MarkReveal from "@/components/MarkReveal";
 import SiteNav from "@/components/SiteNav";
 import Sidebar from "@/components/Sidebar";
 import Comments from "@/components/Comments";
@@ -82,6 +83,13 @@ export default async function Home() {
   return (
     <>
       <SiteNav stats={snapshot.stats} />
+
+      {/*
+        Second half of the mark gesture — see `NavMark`. Renders nothing until
+        the glyphs have fallen, so three.js is never fetched for a visitor who
+        doesn't do it.
+      */}
+      <MarkReveal />
 
       {/*
         Top padding is deliberately smaller than the bottom: `pt-3` against
