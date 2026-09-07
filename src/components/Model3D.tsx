@@ -7,7 +7,7 @@ import {
   OrbitControls,
   useGLTF,
 } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
@@ -94,28 +94,50 @@ function Spin({
   children: React.ReactNode;
 }) {
   const ref = useRef<THREE.Group>(null);
+  const { gl } = useThree();
 
   /*
-   * Pointer position for `follow`, normalised to -1..1 across the viewport.
+   * Where the pointer is **relative to the model**, not to the page.
    *
-   * Tracked on `window`, not on the canvas. R3F's own `state.pointer` only
-   * updates while the pointer is over the canvas, and this canvas is a narrow
-   * strip down one side of the page — the model would stop responding the
-   * moment you moved onto the content, which is most of the time. A ref rather
-   * than state because this changes every mousemove and nothing renders on it.
+   * The first version normalised against the viewport, which is only the same
+   * thing for a model in the middle of it. This one sits in a 305px column
+   * down the left edge, so the cursor was to its right essentially always and
+   * the mark just held a rightward lean — it tracked, but it never looked at
+   * you. Measuring from the canvas's own centre means straight ahead when the
+   * cursor is on it, and turning either way from there.
+   *
+   * Still listening on `window` rather than on the canvas: R3F's own
+   * `state.pointer` updates only while the pointer is *over* the canvas, and
+   * this one is a narrow strip, so the model would freeze the moment you moved
+   * onto the content — which is most of the time.
+   *
+   * Half the viewport is the distance at which it reaches full turn. A ref
+   * rather than state because this changes on every move and nothing renders
+   * on it.
    */
   const aim = useRef({ x: 0, y: 0 });
   useEffect(() => {
     if (mode !== "follow") return;
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
     const onMove = (e: PointerEvent) => {
+      /*
+       * Read per move rather than cached: the canvas slides into place on
+       * reveal and moves again on resize, and a stale centre would leave the
+       * model aiming at where it used to be.
+       */
+      const r = gl.domElement.getBoundingClientRect();
       aim.current = {
-        x: (e.clientX / window.innerWidth) * 2 - 1,
-        y: (e.clientY / window.innerHeight) * 2 - 1,
+        x: clamp(
+          (e.clientX - (r.left + r.width / 2)) / (window.innerWidth / 2),
+        ),
+        y: clamp(
+          (e.clientY - (r.top + r.height / 2)) / (window.innerHeight / 2),
+        ),
       };
     };
     window.addEventListener("pointermove", onMove);
     return () => window.removeEventListener("pointermove", onMove);
-  }, [mode]);
+  }, [mode, gl]);
   /*
    * `delta` rather than a fixed step per frame, so the speed is the same on a
    * 60Hz laptop and a 120Hz phone. A `+= 0.01` here would run at double rate

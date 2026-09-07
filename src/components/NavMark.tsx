@@ -47,6 +47,13 @@ const UNITS_PER_PX = 292 / 36;
 export default function NavMark() {
   const ref = useRef<HTMLAnchorElement>(null);
   const [falling, setFalling] = useState(false);
+  /*
+   * Set once the glyphs are off the page. `falling` alone isn't enough: the
+   * animation holds them below the clip with `forwards`, so the anchor is
+   * still a full-size link over empty space — invisible, focusable, and
+   * clickable. This turns it inert.
+   */
+  const [gone, setGone] = useState(false);
 
   /*
    * Reset when the sequence is dismissed, so the mark comes back. `MarkReveal`
@@ -54,7 +61,10 @@ export default function NavMark() {
    * than either component reaching into the other's state.
    */
   useEffect(() => {
-    const back = () => setFalling(false);
+    const back = () => {
+      setFalling(false);
+      setGone(false);
+    };
     window.addEventListener("bt:reset", back);
     return () => window.removeEventListener("bt:reset", back);
   }, []);
@@ -83,9 +93,11 @@ export default function NavMark() {
 
     setFalling(true);
     /*
-     * Half a second after the last glyph is away — the fall is 1.15s and the
-     * period starts 220ms late, so the mark is fully gone at ~1.37s.
+     * 1.37s is when the last glyph is away — the fall is 1.15s and the period
+     * starts 220ms late. The link goes inert then, and the reveal follows
+     * roughly half a second after that.
      */
+    window.setTimeout(() => setGone(true), 1380);
     window.setTimeout(
       () => window.dispatchEvent(new CustomEvent("bt:reveal")),
       1500,
@@ -94,12 +106,22 @@ export default function NavMark() {
 
   return (
     <span className="flex items-center self-stretch overflow-hidden">
+      {/*
+        Once the glyphs are gone this stops being a link: no `href`, out of the
+        tab order, and inert to the pointer. It keeps its box so the nav items
+        beside it don't shift — the space is still the mark's, there just isn't
+        a mark in it. `MarkReveal` is the home link for as long as that holds.
+      */}
       <a
         ref={ref}
-        href="/#top"
-        aria-label={`${profile.name} — home`}
+        href={gone ? undefined : "/#top"}
+        aria-label={gone ? undefined : `${profile.name} — home`}
+        aria-hidden={gone || undefined}
+        tabIndex={gone ? -1 : undefined}
         onPointerEnter={onEnter}
-        className="group/mark text-bright motion-reduce:transition-opacity motion-reduce:hover:opacity-80"
+        className={`group/mark text-bright motion-reduce:transition-opacity motion-reduce:hover:opacity-80 ${
+          gone ? "pointer-events-none" : ""
+        }`}
       >
         {/*
         `overflow-visible` is not optional, and now for two reasons. The

@@ -11,6 +11,20 @@ import { profile } from "@/lib/profile-data";
  * nav and disappear behind the profile column, and half a second later the
  * same mark comes back out of that column in three dimensions.
  *
+ * ## Why it can't just stay behind everything
+ *
+ * `-z-10` is what puts it behind the profile column, and it is also why the
+ * first version wasn't clickable. The content wrapper in `layout.tsx` is
+ * `position: relative` and, being a block, spans the full width of the page —
+ * including the black columns, where it is completely transparent. A
+ * transparent positioned element still takes pointer events over its whole
+ * box, so it sat on top of the model and swallowed every click.
+ *
+ * So the depth is temporary. It is `-z-10` while it slides, which is the only
+ * time it overlaps anything, and `z-10` once it has arrived — by then it is
+ * out in the column with nothing to be behind, so raising it changes no
+ * pixels and hands back the clicks.
+ *
  * ## Why it reads as "from behind", and why that needs `-z-10`
  *
  * The falling glyphs get this for free: the nav and `<main>` are both in-flow
@@ -71,6 +85,11 @@ export default function MarkReveal() {
    * starts from there. Slower to begin, but it's the model that moves.
    */
   const [open, setOpen] = useState(false);
+  /*
+   * Raised above the content once it has arrived — see the note on the wrapper
+   * below. Separate from `open` because the two happen 700ms apart.
+   */
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
     const reveal = () => {
@@ -81,7 +100,10 @@ export default function MarkReveal() {
   }, []);
 
   useEffect(() => {
-    if (state !== "out") setOpen(false);
+    if (state !== "out") {
+      setOpen(false);
+      setSettled(false);
+    }
   }, [state]);
 
   /*
@@ -112,7 +134,9 @@ export default function MarkReveal() {
     */
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-y-0 left-0 -z-10 hidden w-[calc((100vw-990px)/2)] items-center justify-center xl:flex"
+      className={`pointer-events-none fixed inset-y-0 left-0 hidden w-[calc((100vw-990px)/2)] items-center justify-center xl:flex ${
+        settled ? "z-10" : "-z-10"
+      }`}
     >
       {/*
         The slide. The box is exactly the black column's width, so the model
@@ -145,6 +169,7 @@ export default function MarkReveal() {
       <a
         href="/#top"
         aria-label={`${profile.name} — home`}
+        onTransitionEnd={() => setSettled(true)}
         className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
