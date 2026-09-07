@@ -820,14 +820,28 @@ export const projects: Project[] = [
      * because it was the subject of a benchmark would put it on the page as
      * something he uses.
      */
-    id: "amazon-kiro",
-    name: "Amazon AWS",
+    /*
+     * Replaced the Amazon Kiro benchmark at Bradley's request — same client,
+     * new engagement, so the row is reused rather than added alongside. The
+     * old entry was: "Developed evaluation criteria and test methodology for
+     * technical benchmarking of Amazon Kiro against Codex and Cursor."
+     */
+    id: "qualcomm",
+    name: "Qualcomm",
     kind: "Research",
     category: "dana",
     blurb:
-      "Developed evaluation criteria and test methodology for technical benchmarking of Amazon Kiro against Codex and Cursor.",
+      "Strategic competitor analysis via data analysis, modeling and visualizations for the recent Dragonwing chip against NVIDIA's.",
     rarity: "major",
-    tags: [],
+    /*
+     * Both named in his own line above, so neither is inferred. The Amazon row
+     * this replaces carried none, because Kiro/Codex/Cursor were the *subject*
+     * of that benchmark rather than things he works with — these are the
+     * methods he used, which is the difference.
+     */
+    tags: ["Data Analysis", "Data Visualization"],
+    // "Current Project", his words. No start year given, so none is invented.
+    period: "Present",
     href: undefined,
     repo: undefined,
   },
