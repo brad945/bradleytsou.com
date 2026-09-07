@@ -559,6 +559,7 @@ export const roles: Role[] = [
     tags: ["Applied AI", "Cybersecurity", "HIPAA / PHI", "IT Operations"],
     title: "Applied AI & Software Engineer Intern",
     start: "May 2026",
+    end: "Aug 2026",
     location: "San Diego, CA",
     blurb: "Portal cybersecurity systems; Verdegard IT operations.",
     url: "https://www.medimpact.com",
@@ -578,6 +579,7 @@ export const roles: Role[] = [
     tags: ["Vocal Synthesis", "Data Annotation", "Audio Engineering"],
     title: "Language and Audio Specialist",
     start: "Jun 2026",
+    end: "Aug 2026",
     blurb:
       "Producing training data for generative-music frontier AI labs including Spotify Labs, xAI and Mercor.",
   },
