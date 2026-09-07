@@ -8,7 +8,7 @@ import {
   useGLTF,
 } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
 
@@ -87,13 +87,35 @@ function Spin({
   sweep = 0.55,
   children,
 }: {
-  mode?: "spin" | "rock";
+  mode?: "spin" | "rock" | "follow";
   speed?: number;
   /** Radians either side of front, for `rock`. 0.55 ≈ 32°. */
   sweep?: number;
   children: React.ReactNode;
 }) {
   const ref = useRef<THREE.Group>(null);
+
+  /*
+   * Pointer position for `follow`, normalised to -1..1 across the viewport.
+   *
+   * Tracked on `window`, not on the canvas. R3F's own `state.pointer` only
+   * updates while the pointer is over the canvas, and this canvas is a narrow
+   * strip down one side of the page — the model would stop responding the
+   * moment you moved onto the content, which is most of the time. A ref rather
+   * than state because this changes every mousemove and nothing renders on it.
+   */
+  const aim = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    if (mode !== "follow") return;
+    const onMove = (e: PointerEvent) => {
+      aim.current = {
+        x: (e.clientX / window.innerWidth) * 2 - 1,
+        y: (e.clientY / window.innerHeight) * 2 - 1,
+      };
+    };
+    window.addEventListener("pointermove", onMove);
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [mode]);
   /*
    * `delta` rather than a fixed step per frame, so the speed is the same on a
    * 60Hz laptop and a 120Hz phone. A `+= 0.01` here would run at double rate
@@ -108,10 +130,27 @@ function Spin({
     if (!ref.current) return;
     if (mode === "spin") {
       ref.current.rotation.y += delta * speed;
-    } else {
-      t.current += delta * speed;
-      ref.current.rotation.y = Math.sin(t.current) * sweep;
+      return;
     }
+    if (mode === "follow") {
+      /*
+       * Eased toward the target rather than set to it, so the mark swings
+       * after the cursor instead of being welded to it — the lag is what makes
+       * it feel like an object being turned rather than a slider.
+       *
+       * The damping is scaled by `delta` so it settles at the same rate
+       * whatever the frame rate. `Math.min(1, …)` because a long frame (a tab
+       * regaining focus) would otherwise overshoot past the target and snap.
+       */
+      const k = Math.min(1, delta * 4);
+      ref.current.rotation.y +=
+        (aim.current.x * 0.85 - ref.current.rotation.y) * k;
+      ref.current.rotation.x +=
+        (aim.current.y * 0.35 - ref.current.rotation.x) * k;
+      return;
+    }
+    t.current += delta * speed;
+    ref.current.rotation.y = Math.sin(t.current) * sweep;
   });
   return <group ref={ref}>{children}</group>;
 }
@@ -216,8 +255,11 @@ export default function Model3D({
 }: {
   /** A `.glb` in `public/`. Omit to spin the extruded `bt.` mark instead. */
   src?: string;
-  /** `"spin"` for a full turn, as the reference site does. See `Spin`. */
-  mode?: "spin" | "rock";
+  /**
+   * `"rock"` turns and returns, `"spin"` is the reference site's full turn,
+   * `"follow"` tracks the cursor. See `Spin`.
+   */
+  mode?: "spin" | "rock" | "follow";
   /** >1 pulls the camera back, making the model smaller in frame. */
   zoom?: number;
   /**
@@ -302,12 +344,18 @@ export default function Model3D({
           break the page rather than a feature. `autoRotate` stays off because
           `Spin` already owns the rotation, and two of them fight.
         */}
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          minPolarAngle={Math.PI / 3}
-          maxPolarAngle={(Math.PI * 2) / 3}
-        />
+        {/*
+          Drag to rotate — but not in `follow`, where the two would fight over
+          the same rotation every frame and the model would judder.
+        */}
+        {mode !== "follow" && (
+          <OrbitControls
+            enableZoom={false}
+            enablePan={false}
+            minPolarAngle={Math.PI / 3}
+            maxPolarAngle={(Math.PI * 2) / 3}
+          />
+        )}
       </Canvas>
     </div>
   );

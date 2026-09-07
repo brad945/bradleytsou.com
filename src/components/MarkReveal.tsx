@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { profile } from "@/lib/profile-data";
 
 /**
  * The 3D mark, sliding out from behind the profile block into the left column.
@@ -111,12 +112,16 @@ export default function MarkReveal() {
     */
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-y-0 left-0 -z-10 hidden w-[calc((100vw-990px)/2+120px)] items-center justify-start xl:flex"
+      className="pointer-events-none fixed inset-y-0 left-0 -z-10 hidden w-[calc((100vw-990px)/2)] items-center justify-center xl:flex"
     >
       {/*
-        The slide. The box overlaps the profile column by 120px so the model
-        starts genuinely underneath it rather than just off its edge, and
-        `translate-x-full` clears that whole width.
+        The slide. The box is exactly the black column's width, so the model
+        sits centred in it — an earlier version overlapped the profile column
+        by 120px to guarantee the closed position was hidden, and the cost was
+        that the open position was 60px off-centre and bleeding under the
+        panel. It doesn't need the overlap: `translate-x-full` moves it by its
+        own width, which lands it exactly on the profile column's left edge and
+        therefore under it.
 
         **Height is set to keep the canvas from being too portrait.** The
         camera's field of view is vertical, so a tall narrow canvas fits the
@@ -127,25 +132,34 @@ export default function MarkReveal() {
         `duration-700` with a back-eased curve: it should arrive like something
         pushed out rather than something faded in.
       */}
-      <div
-        className={`pointer-events-auto h-[40vh] max-h-[380px] w-full transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      {/*
+        An anchor, because the flat mark it replaced was one and is now at the
+        bottom of the page. This is the nav's home link for as long as the
+        gesture is running — same `/#top` target, same reason: `top` is a
+        fragment the spec resolves to the document top, so it needs no element
+        and lands without the ~56px jolt `#profile` caused.
+
+        Escape still dismisses and puts the flat mark back, so the link isn't
+        the only way out.
+      */}
+      <a
+        href="/#top"
+        aria-label={`${profile.name} — home`}
+        className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
-        onClick={() => {
-          setState("idle");
-          window.dispatchEvent(new CustomEvent("bt:reset"));
-        }}
       >
         {/*
           `zoom` pulls the camera back rather than scaling the element: scaling
           would blur the canvas, since it renders at its own pixel size.
         */}
         <Model3D
+          mode="follow"
           zoom={1.35}
           onReady={() => setOpen(true)}
           className="h-full w-full"
         />
-      </div>
+      </a>
     </div>
   );
 }

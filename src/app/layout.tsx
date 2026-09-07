@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Gabarito, JetBrains_Mono, Open_Sans } from "next/font/google";
 import "./globals.css";
 import AnimatedFavicon from "@/components/AnimatedFavicon";
+import MarkReveal from "@/components/MarkReveal";
 import { profile, siteOrigin } from "@/lib/profile-data";
 
 /**
@@ -101,6 +102,22 @@ export default function RootLayout({
           style={{ backgroundSize: "760px 760px" }}
           aria-hidden
         />
+        {/*
+          The 3D mark, on every page — the nav is on every page, so the gesture
+          that summons it is too, and having it work on `/` alone would have
+          made the mark's fall a dead end everywhere else.
+
+          A sibling of the content rather than inside it, and that placement is
+          load-bearing: it carries `-z-10`, and the wrapper below is
+          `position: relative`, which puts *it* in the positioned-descendant
+          paint step. So the content paints over the model wherever they
+          overlap, which is what makes it read as sliding out from behind the
+          profile column.
+
+          Renders nothing until the gesture completes, so three.js is never
+          fetched for a visitor who doesn't do it.
+        */}
+        <MarkReveal />
         <div className="relative">{children}</div>
         {/* Swaps the static /icon for a stepped hop after hydration. Renders
             nothing; with JS off the static mark stays. */}
