@@ -955,9 +955,18 @@ export const projects: Project[] = [
      * paper. These tags feed the Tech Stack panel, so the panel gets the
      * sharper claim too.
      */
+    /*
+     * "Multi-agent RL" was Bradley's ask for the Tech Stack panel, and it goes
+     * here rather than into `EVIDENCED_STACK` because this project is exactly
+     * that — the blurb above says hierarchical RL orchestrating multi-agent
+     * teams. Adding it to the panel directly would have made it an assertion
+     * with nothing behind it; adding it here keeps the panel derived from work
+     * that's visible on the page.
+     */
     tags: [
       "Python",
       "Hierarchical RL",
+      "Multi-agent RL",
       "Multi-agent Orchestration",
       "Subagent Delegation",
     ],
@@ -1079,13 +1088,22 @@ const STACK_ORDER: readonly (readonly string[])[] = [
     "Multi-agent Orchestration",
     "Subagent Delegation",
     "Hierarchical RL",
+    "Multi-agent RL",
     "Computer Vision",
     "Fetch AI",
     "Fish Audio",
     "Bright Data",
   ],
   // Data and infrastructure.
-  ["Postgres", "Docker", "Vercel", "GraphQL", "REST APIs"],
+  [
+    "Postgres",
+    "Docker",
+    "Vercel",
+    "GraphQL",
+    "REST APIs",
+    "Data Analysis",
+    "Data Visualization",
+  ],
   // Domain competencies — real, but not what anyone scans a stack for.
   [
     "Cybersecurity",
