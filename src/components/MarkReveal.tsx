@@ -64,7 +64,14 @@ import { profile } from "@/lib/profile-data";
 
 const Model3D = dynamic(() => import("@/components/Model3D"), { ssr: false });
 
-/** Below this the black column is too narrow to slide anything into. */
+/**
+ * Below this the black column is too narrow to slide anything into.
+ *
+ * **Kept equal to `MIN_VW` in `NavMark`**, which is where the gesture starts.
+ * If this were the higher of the two the glyphs would fall and nothing would
+ * follow, which is the dead end that putting the reveal on every page was
+ * meant to remove.
+ */
 const MIN_VW = 1180;
 
 export default function MarkReveal() {

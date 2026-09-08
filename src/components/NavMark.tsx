@@ -14,6 +14,20 @@ import { profile } from "@/lib/profile-data";
  * its bottom edge, and `MarkReveal` slides the 3D mark out of the left column
  * once it has loaded.
  *
+ * ## Touch, and why the whole thing is off on a phone
+ *
+ * There is no hover on a touch screen, so there a press-and-hold does it —
+ * chosen over a tap so the mark stays a home link, which is what it is for.
+ * `pointermove` cancels the hold, because a finger that has begun scrolling
+ * isn't pressing anything, and the click that follows a completed hold is
+ * suppressed or the browser would navigate home on top of the animation.
+ *
+ * None of it runs below `MIN_VW`. The thing being revealed slides into the
+ * black surround, and on a phone the profile column fills the width — there is
+ * no surround, so the fall would end in nothing. Under that width the mark
+ * hops as it always did and stops there, which is also why three.js is never
+ * fetched on a phone.
+ *
  * ## Where they disappear
  *
  * At the header bar's own edge, because the wrapper below stretches to the
@@ -44,8 +58,32 @@ import { profile } from "@/lib/profile-data";
 /** viewBox units per screen pixel, vertically. See the note above. */
 const UNITS_PER_PX = 292 / 36;
 
+/**
+ * Below this the gesture doesn't run at all.
+ *
+ * It has to match `MIN_VW` in `MarkReveal`, and the reason to keep them equal
+ * is worth stating: below it there is no black column for the model to slide
+ * into, so a fall would end in nothing. That is precisely the dead end fixed
+ * by putting the reveal on every page — narrower than this, the honest thing
+ * is for the mark to hop the way it always did and go no further.
+ */
+const MIN_VW = 1180;
+
+/** How long a press has to be held on touch. */
+const HOLD_MS = 500;
+
 export default function NavMark() {
   const ref = useRef<HTMLAnchorElement>(null);
+  /** Pending long-press timer, so it can be cancelled. */
+  const hold = useRef<number | null>(null);
+
+  const clearHold = () => {
+    if (hold.current !== null) {
+      window.clearTimeout(hold.current);
+      hold.current = null;
+    }
+  };
+  useEffect(() => clearHold, []);
   const [falling, setFalling] = useState(false);
   /*
    * Set once the glyphs are off the page. `falling` alone isn't enough: the
@@ -69,8 +107,9 @@ export default function NavMark() {
     return () => window.removeEventListener("bt:reset", back);
   }, []);
 
-  function onEnter() {
+  function fall() {
     if (falling) return;
+    if (window.innerWidth < MIN_VW) return;
 
     /*
      * How far to fall: from the mark's own top edge to the top of the profile
@@ -118,7 +157,33 @@ export default function NavMark() {
         aria-label={gone ? undefined : `${profile.name} — home`}
         aria-hidden={gone || undefined}
         tabIndex={gone ? -1 : undefined}
-        onPointerEnter={onEnter}
+        /*
+          Hover fires it with a mouse; a press-and-hold fires it on touch,
+          where there is no hover to use.
+        */
+        onPointerEnter={(e) => {
+          if (e.pointerType !== "touch") fall();
+        }}
+        onPointerDown={(e) => {
+          if (e.pointerType !== "touch") return;
+          hold.current = window.setTimeout(fall, HOLD_MS);
+        }}
+        /*
+          Any of these ends the press. `pointermove` too: a finger that has
+          started scrolling is not holding the mark, and without this the
+          gesture fires halfway down the page.
+        */
+        onPointerUp={clearHold}
+        onPointerCancel={clearHold}
+        onPointerMove={clearHold}
+        /*
+          Suppress the tap that follows a hold. A long press still ends in a
+          click, so without this the fall would fire and the browser would then
+          navigate home on top of it.
+        */
+        onClick={(e) => {
+          if (falling) e.preventDefault();
+        }}
         className={`group/mark text-bright motion-reduce:transition-opacity motion-reduce:hover:opacity-80 ${
           gone ? "pointer-events-none" : ""
         }`}
