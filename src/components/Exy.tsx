@@ -208,9 +208,12 @@ export default function Exy() {
   const [walking, setWalking] = useState(false);
 
   /**
-   * Whether he's ever been walked. Drives the WASD hint, which is a one-time
+   * Whether he's ever been walked. Drives the hint, which is a one-time
    * instruction rather than a label — once you've moved him you know, and it
    * would just be a caption stuck to a dog from then on.
+   *
+   * Retired by a tap as well as a keypress now, since a tap is the other way
+   * to drive him and on a phone it's the only one.
    *
    * Deliberately not reset by `sleep()`: putting him away doesn't make you
    * forget the controls. Not persisted either — a fresh page is a fresh
@@ -218,6 +221,23 @@ export default function Exy() {
    * is more machinery than it's worth.
    */
   const [hasWalked, setHasWalked] = useState(false);
+
+  /*
+   * Whether this is a touch device, for the hint's wording only.
+   *
+   * `pointer: coarse` rather than a width check or a user-agent string: the
+   * question is what the visitor is pointing with, and a narrow window on a
+   * laptop still has a keyboard while a wide tablet doesn't.
+   *
+   * Read in an effect rather than during render, because the server has no
+   * `matchMedia` and guessing would mean the first paint disagrees with the
+   * second. It starts as false, which is the desktop wording — the hint is
+   * `label`-sized and one word, so the correction is invisible.
+   */
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    setCoarse(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
 
   /** True for the length of one shake, after a click. */
   const [shaking, setShaking] = useState(false);
@@ -252,6 +272,17 @@ export default function Exy() {
   /** The inner box, which carries the scale so the outer keeps the position. */
   const bodies = useRef<(HTMLDivElement | null)[]>([]);
   const held = useRef(new Set<string>());
+  /*
+   * Where he's been sent, in page coordinates, or null.
+   *
+   * Tap-to-walk, for touch — there is no keyboard on a phone, so without this
+   * he wakes up and then cannot be moved at all. Set by a tap anywhere on the
+   * page; cleared when he arrives.
+   *
+   * A ref rather than state: the walk loop reads it every frame, and a
+   * re-render per tap would do nothing except throw away the frame clock.
+   */
+  const target = useRef<{ x: number; y: number } | null>(null);
   const raf = useRef<number | null>(null);
   const lastTick = useRef(0);
   const frameClock = useRef(0);
@@ -366,6 +397,51 @@ export default function Exy() {
     setShaking(true);
   }, []);
 
+  /*
+   * Tap the page and he walks there. The mobile answer to WASD, and it works
+   * with a mouse too.
+   *
+   * Bound on the window rather than on an overlay, because an overlay big
+   * enough to catch taps anywhere is an overlay over the whole page, and
+   * everything under it stops being clickable.
+   *
+   * Three things are deliberately *not* a destination:
+   *
+   *   - anything inside a link, button or input. Sending him somewhere is a
+   *     background gesture and must never be the reason a tap on a repo row
+   *     didn't open it. `closest` rather than a tag check, because the target
+   *     of a click on a link is usually the text node's element, not the `<a>`.
+   *   - Exy himself, which is a poke — he has his own handler and this would
+   *     otherwise fire alongside it and send him to where he already is.
+   *   - a tap that's part of a text selection, which is a drag rather than a
+   *     tap and would jump him mid-sentence.
+   *
+   * The point is his top-left, offset by half his width and most of his
+   * height, so he ends up standing *on* the tap rather than hanging below and
+   * right of it.
+   */
+  useEffect(() => {
+    if (phase !== "awake") return;
+    function onTap(event: PointerEvent) {
+      const el = event.target as HTMLElement | null;
+      if (!el) return;
+      if (el.closest("a, button, input, textarea, select, [role='button']"))
+        return;
+      if (el.closest("[data-exy]")) return;
+      if (window.getSelection()?.toString()) return;
+
+      const w = SPRITE_PX * scale.current;
+      target.current = {
+        x: event.clientX + window.scrollX - w / 2,
+        y: event.clientY + window.scrollY - w * 0.8,
+      };
+      // Retires the hint the same way a keypress does — he's been driven.
+      setHasWalked(true);
+    }
+    window.addEventListener("pointerdown", onTap);
+    return () => window.removeEventListener("pointerdown", onTap);
+  }, [phase]);
+
   const sleep = useCallback(() => {
     setPhase("asleep");
     setShaking(false);
@@ -478,6 +554,8 @@ export default function Exy() {
         const dir = KEY_DIRECTION[key];
         if (dir) going.add(dir);
       });
+      // A key takes over from a tap. See the note where the target is read.
+      if (going.size > 0) target.current = null;
 
       let dx = 0;
       let dy = 0;
@@ -485,6 +563,40 @@ export default function Exy() {
       if (going.has("down")) dy += 1;
       if (going.has("left")) dx -= 1;
       if (going.has("right")) dx += 1;
+
+      /*
+       * Walking to a tapped point, when no key is doing the steering.
+       *
+       * Deliberately *after* the keys and only when they're idle, so a
+       * keyboard always wins — pressing a key mid-walk takes him over rather
+       * than fighting the destination. Touching a key also cancels the target
+       * outright, or he'd resume walking to it the moment the key came up.
+       *
+       * The direction is fed into the same `dx`/`dy` the keys produce, which
+       * is the whole reason this is only a few lines: facing, frame rate,
+       * scaling and containment all read those and need no idea a tap
+       * happened. **Not normalised here** — the code below does it, and
+       * normalising twice would be harmless but the raw delta is also what
+       * `ARRIVE` is measured against.
+       */
+      if (dx === 0 && dy === 0 && target.current) {
+        const tx = target.current.x - pos.current.x;
+        const ty = target.current.y - pos.current.y;
+        /*
+         * Arrival needs a radius, not equality: he moves in whole frames, so
+         * he steps over an exact point and then oscillates around it forever.
+         * Scaled by his own size, because a big near Exy covering the last
+         * 12px is a smaller part of a stride than a distant one doing the
+         * same.
+         */
+        const ARRIVE = 14 * scale.current;
+        if (Math.hypot(tx, ty) <= ARRIVE) {
+          target.current = null;
+        } else {
+          dx = tx;
+          dy = ty;
+        }
+      }
 
       const moving = dx !== 0 || dy !== 0;
 
@@ -736,6 +848,13 @@ export default function Exy() {
               flag, so a poke mid-wrap shakes the whole dog rather than half.
             */}
             <div
+              /*
+                `data-exy` is what the tap-to-walk listener checks to leave him
+                alone. Without it a poke would also register as a destination
+                and send him to where he already is — he'd shake and then take
+                a step, which reads as him flinching away from you.
+              */
+              data-exy
               onClick={poke}
               onAnimationEnd={() => setShaking(false)}
               className={shaking ? "animate-exy-shake" : undefined}
@@ -759,7 +878,9 @@ export default function Exy() {
             </div>
             {/* Hint on the real copy only, or it would read twice mid-wrap. */}
             {!walking && !hasWalked && i === 0 && (
-              <span className="label text-[9px] text-muted/70">WASD</span>
+              <span className="label text-[9px] text-muted/70">
+                {coarse ? "TAP" : "WASD"}
+              </span>
             )}
           </div>
         </div>
