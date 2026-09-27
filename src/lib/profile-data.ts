@@ -378,7 +378,7 @@ export const books: Book[] = [
     spineLabel: "Common Sense",
     author: "John C. Bogle",
     status: "reading",
-    note: "Buy high sell low.",
+    note: "buy high sell low",
     cover: "/books/common-sense-investing.jpg",
     spine: "#840c0c",
     ink: "#ffffff",
