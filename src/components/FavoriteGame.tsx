@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 import type { SteamPlaytime } from "@/lib/steam";
-import { favoriteGame } from "@/lib/profile-data";
+import { favoriteGame, favoriteGameFallbackHours } from "@/lib/profile-data";
 
 /**
  * Steam's "Favorite Game" slot, holding an actual game.
@@ -14,11 +14,17 @@ import { favoriteGame } from "@/lib/profile-data";
  * ## The numbers
  *
  * Hours come from Steam's Web API — see `lib/steam.ts` for why that needs a
- * key even though the profile is public. **Without them the panel still
- * renders**, minus the stat row: the favourite is hand-picked and true whether
- * or not the hours are reachable, so hiding the whole thing would lose a real
- * fact to protect a missing one. That's the opposite call from the DevEval
- * block, which is *only* numbers and so has nothing left to show.
+ * key even though the profile is public. The favourite is hand-picked and true
+ * whether or not the hours are reachable, so the panel never hides itself —
+ * the opposite call from the DevEval block, which is *only* numbers and so has
+ * nothing left to show.
+ *
+ * When the lookup fails it falls back to `favoriteGameFallbackHours`, which is
+ * Bradley's own figure rather than a fetched one. **Only the lifetime total
+ * falls back.** "past 2 weeks" is live-only on purpose: Steam omits that field
+ * when you haven't played, so a hardcoded 0 would go on asserting "hasn't
+ * played" with nothing able to correct it. One number he stated beats two
+ * where he only stated one.
  *
  * "hours on record" and "past 2 weeks" are Steam's own labels, deliberately —
  * the second is a figure Steam puts in exactly this slot, and renaming it
@@ -37,6 +43,17 @@ export default function FavoriteGame({
   playtime: SteamPlaytime | null;
 }) {
   const { name, blurb, url } = favoriteGame;
+
+  /*
+   * Live figures when Steam answered, otherwise the hand-set total on its own.
+   * Built here rather than inline so the stat row below renders one shape.
+   */
+  const stats = playtime
+    ? [
+        { value: playtime.total, label: "hours on record" },
+        { value: playtime.past2Weeks, label: "past 2 weeks" },
+      ]
+    : [{ value: favoriteGameFallbackHours, label: "hours on record" }];
 
   return (
     <section aria-labelledby="favorite-game-heading" className="panel">
@@ -98,25 +115,20 @@ export default function FavoriteGame({
 
           <p className="t-body mt-1.5">{blurb}</p>
 
-          {playtime && (
-            <div className="mt-3 flex flex-wrap items-baseline gap-x-8 gap-y-1">
-              {[
-                { value: playtime.total, label: "hours on record" },
-                { value: playtime.past2Weeks, label: "past 2 weeks" },
-              ].map(({ value, label }) => (
-                <span key={label} className="flex items-baseline gap-2">
-                  {/*
-                    `toLocaleString` for the thousands separator, and tabular
-                    figures so the pair doesn't shift when the numbers change.
-                  */}
-                  <span className="text-[24px] font-light leading-none tabular-nums text-ink">
-                    {value.toLocaleString()}
-                  </span>
-                  <span className="t-meta">{label}</span>
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-8 gap-y-1">
+            {stats.map(({ value, label }) => (
+              <span key={label} className="flex items-baseline gap-2">
+                {/*
+                  `toLocaleString` for the thousands separator, and tabular
+                  figures so the pair doesn't shift when the numbers change.
+                */}
+                <span className="text-[24px] font-light leading-none tabular-nums text-ink">
+                  {value.toLocaleString()}
                 </span>
-              ))}
-            </div>
-          )}
+                <span className="t-meta">{label}</span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </section>

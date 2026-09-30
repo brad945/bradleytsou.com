@@ -449,6 +449,30 @@ export const favoriteGame = {
 } as const;
 
 /**
+ * Lifetime hours to show when Steam's API gives us nothing back.
+ *
+ * **Hand-set, and it cannot self-correct** — the same standing as
+ * `profileLevel` and `hackathonWins`. Bradley's own figure, read off his Steam
+ * page, so it's his statement rather than an invented number; it is not a
+ * measurement this site took.
+ *
+ * It exists because the key is currently being *rejected*, not missing:
+ * `api.steampowered.com` answers 403 to an auth check, the same status a
+ * deliberately malformed key gets, where no key at all gets 400. So no games
+ * list comes back and `getSteamPlaytime()` returns null on every request.
+ *
+ * **Live data always wins.** Fix the key and `playtime` is non-null again, the
+ * real pair of figures renders, and this constant stops being read — so there
+ * is nothing to undo here later.
+ *
+ * Only "hours on record" is covered. There is deliberately no fallback for
+ * "past 2 weeks": Steam omits that field when you haven't played, so 0 and
+ * absent are the same response (see `lib/steam.ts`), and a hardcoded 0 would
+ * keep asserting "hasn't played" long after that stopped being true.
+ */
+export const favoriteGameFallbackHours = 1107;
+
+/**
  * Hackathon wins, for the sidebar row.
  *
  * Hand-set, from Bradley directly.
