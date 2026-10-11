@@ -592,6 +592,25 @@ export interface FeaturedRepo {
 }
 
 /**
+ * A repo's GitHub "Website" field, as something an `href` can actually use.
+ *
+ * GitHub stores that field as typed and doesn't insist on a scheme:
+ * `brad945/bradleytsou.com` holds the bare "bradleytsou.com". A bare host in
+ * an `href` is a *relative path*, so that row pointed at
+ * /bradleytsou.com on this site and 404'd — a dead link that looked
+ * like a working one, since the text beside it was right.
+ *
+ * Empty string, not null, is what GitHub returns for "no website".
+ */
+function websiteUrl(raw: string | null | undefined): string | null {
+  const url = raw?.trim();
+  if (!url) return null;
+  // Scheme-relative already resolves correctly; it just has no scheme to test.
+  if (url.startsWith("//")) return `https:${url}`;
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+/**
  * Hand-picked repos for the "recently played" slot.
  *
  * Needed because the automatic list can only see public repos Bradley *owns*,
@@ -683,8 +702,7 @@ export async function getFeaturedRepos(
         owner: r.owner?.login ?? "",
         isPrivate: Boolean(r.isPrivate),
         url: r.url,
-        // Empty string is what GitHub returns for "no website", not null.
-        homepage: r.homepageUrl?.trim() ? r.homepageUrl.trim() : null,
+        homepage: websiteUrl(r.homepageUrl),
         description: r.description ?? null,
         language: r.primaryLanguage?.name ?? null,
         pushedAt: r.pushedAt ?? "",
