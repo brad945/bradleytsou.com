@@ -603,9 +603,9 @@ export const roles: Role[] = [
     tags: ["Vocal Synthesis", "Data Annotation", "Audio Engineering"],
     title: "Language and Audio Specialist",
     start: "Jun 2026",
-    end: "Aug 2026",
+    end: "Jul 2026",
     blurb:
-      "Producing training data for generative-music frontier AI labs including Spotify Labs, xAI and Mercor.",
+      "Producing/labeling training data for generative-music frontier AI labs including Spotify Labs, xAI and Mercor.",
   },
   {
     org: "DevEval",
