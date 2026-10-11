@@ -629,7 +629,7 @@ export const roles: Role[] = [
   {
     org: "UCSB",
     tags: ["Behavioral Economics", "Modelling", "Qualitative Research"],
-    title: "Research Experience Intern",
+    title: "Mathematical Economics Researcher",
     start: "Jun 2024",
     end: "Aug 2025",
     blurb:
