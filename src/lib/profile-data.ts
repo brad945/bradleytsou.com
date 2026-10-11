@@ -407,7 +407,7 @@ export const books: Book[] = [
     spineLabel: "Peanuts",
     author: "Charles M. Schulz",
     status: "shelved",
-    note: "The early Schulz, before the specials.",
+    note: "the good stuff",
     cover: "/books/peanuts.jpg",
     spine: "#0c549c",
     ink: "#ffffff",
