@@ -28,9 +28,12 @@ export function Row({
   href,
   isPrivate = false,
   award,
+  metaSub,
 }: {
   title: string;
   meta: string;
+  /** Sits under `meta`, right-aligned with it. A role's location goes here. */
+  metaSub?: string;
   subtitle?: string;
   blurb?: string;
   tags?: string[];
@@ -111,6 +114,16 @@ export function Row({
           blurb, so the width is the other half of the fix.
         */}
         <p className="whitespace-nowrap">{meta}</p>
+        {/*
+          The location, under the date rather than beside the job title, at
+          Bradley's request. It groups the two facts that answer "when and
+          where" in one column and leaves the left column to the role itself.
+
+          Not nowrap: the date above is a known width, but a location is
+          arbitrary text, so a long one should wrap inside the column instead
+          of overflowing left into the blurb.
+        */}
+        {metaSub && <p className="text-muted/70">{metaSub}</p>}
       </div>
     </li>
   );
@@ -122,10 +135,11 @@ function roleRow(role: Role, repo?: FeaturedRepo) {
       key={`role-${role.org}-${role.title}`}
       title={role.org}
       href={role.url}
-      subtitle={[role.title, role.location].filter(Boolean).join(" · ")}
+      subtitle={role.title}
       blurb={role.blurb}
       tags={role.tags}
       meta={`${role.start} — ${role.end ?? "Present"}`}
+      metaSub={role.location}
     />
   );
 }
