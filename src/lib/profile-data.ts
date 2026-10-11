@@ -679,9 +679,15 @@ export const roles: Role[] = [
  * is also the fallback the activity panel drops to if the recency query comes
  * back empty, which is why it stays in a sensible order.
  *
- * Naming a private repo here DOES publish its name. That's the deliberate
- * exception to `namedPrivateRepos` below: these are hand-picked. Don't add
- * coursework repos.
+ * Naming a private repo here DOES publish its name, and that's deliberate
+ * because these are hand-picked. (The `namedPrivateRepos` list this used to
+ * point at doesn't exist anywhere in the repo — hand-picking *was* the whole
+ * mechanism.) Don't add coursework repos.
+ *
+ * It is no longer the only way a private name reaches the page: `getRecentRepos`
+ * can put one there without being asked, which is the tradeoff Bradley took
+ * when he chose an automatic activity panel. That function's doc comment is
+ * where the skip-list lever lives if a particular repo shouldn't be named.
  */
 export const featuredRepos: string[] = [
   "brad945/frankenstein-queue",
