@@ -551,6 +551,21 @@ export const profile = {
  * name. These are the ones Bradley wants shown. Set to `[]` and the dropdown
  * reads "No previous aliases" instead.
  */
+/**
+ * What the browser tab says, on every page.
+ *
+ * One of the handles in `aliases` rather than his name, at Bradley's request.
+ * A tab is the one surface where a handle beats a full name: it's narrow, it's
+ * seen by people who already know whose page this is, and `algebradley` says
+ * something about him that "Bradley Tsou" doesn't.
+ *
+ * **This is the `<title>`, so it is also the headline Google shows for the
+ * page.** The share card is deliberately *not* changed with it —
+ * `openGraph.title` and `siteName` stay on his real name, because a link
+ * pasted into a chat is seen by people who may not know the handle.
+ */
+export const tabName = "algebradley";
+
 export const aliases: string[] = [
   "brad945",
   "bradoom",

@@ -12,6 +12,7 @@ import {
   githubUsername,
   profile,
   steamId64,
+  tabName,
 } from "@/lib/profile-data";
 
 /**
@@ -39,7 +40,7 @@ import {
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: `About — ${profile.name}`,
+  title: `About — ${tabName}`,
   description: "What I actually do, like and play.",
   alternates: { canonical: "/about" },
 };

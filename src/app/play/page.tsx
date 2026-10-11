@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 
 import SiteNav from "@/components/SiteNav";
 import { getGitHubSnapshot } from "@/lib/github";
-import { githubUsername, profile } from "@/lib/profile-data";
+import { githubUsername, profile, tabName } from "@/lib/profile-data";
 
 /**
  * `/play` — deliberately empty for now.
@@ -46,7 +46,7 @@ const Model3D = dynamic(() => import("@/components/Model3D"), {
 });
 
 export const metadata: Metadata = {
-  title: `Play — ${profile.name}`,
+  title: `Play — ${tabName}`,
   alternates: { canonical: "/play" },
 };
 

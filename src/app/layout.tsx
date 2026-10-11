@@ -3,7 +3,7 @@ import { Gabarito, JetBrains_Mono, Open_Sans } from "next/font/google";
 import "./globals.css";
 import AnimatedFavicon from "@/components/AnimatedFavicon";
 import MarkReveal from "@/components/MarkReveal";
-import { profile, siteOrigin } from "@/lib/profile-data";
+import { profile, siteOrigin, tabName } from "@/lib/profile-data";
 
 /**
  * Steam's own face is Motiva Sans, and the Tailwind stacks now name it first
@@ -59,9 +59,9 @@ const sign = Gabarito({
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin),
-  // Just the name. The handle used to be appended and said nothing the name
-  // didn't — a tab is narrow, and "Bradley Tsou" is the whole identity here.
-  title: profile.name,
+  // A handle, not the name — see `tabName`. The share card below deliberately
+  // keeps the real name, so the two differ on purpose.
+  title: tabName,
   description: profile.tagline,
   alternates: { canonical: "/" },
   openGraph: {
