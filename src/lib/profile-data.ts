@@ -678,8 +678,10 @@ export const roles: Role[] = [
  */
 export const featuredRepos: string[] = [
   /*
-   * Order is manual and it is what Recent Activity shows — the panel takes the
-   * first few in this order, it does not sort by push date.
+   * This list is the *selection*, not the order. Recent Activity sorts what it
+   * shows by push date (newest first) and takes the first few; the sidebar and
+   * the `ghRepo` lookups order themselves their own way. So adding a repo here
+   * makes it eligible everywhere — where it lands is up to each panel.
    *
    * That's why `frankenstein-queue` (then named `artie-queue`) was missing
    * rather than stale: the GitHub data was

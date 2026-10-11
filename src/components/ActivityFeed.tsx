@@ -247,6 +247,31 @@ export default function ActivityFeed({
   const now = Date.parse(fetchedAt);
   const useFeatured = featured.length > 0;
 
+  /*
+   * Newest push first.
+   *
+   * `featuredRepos` decides *which* repos are eligible, and that is the part
+   * worth keeping by hand: it's what keeps years-old intro repos out while
+   * letting private work and repos Bradley only contributes to in. Order is a
+   * separate question, and this panel is called Recent Activity — so a push
+   * from two months ago sitting above one from this morning read as broken
+   * data even though every timestamp was correct.
+   *
+   * Sorted on a copy: `featured` also feeds the Experience rows and the
+   * sidebar's repo block, which order themselves by their own rules.
+   *
+   * `pushedAt` is "" for a repo the token can't see, and `Date.parse("")` is
+   * NaN, which would make the comparator inconsistent and the sort unstable.
+   * Those sort last instead.
+   */
+  const pushedTime = (iso: string) => {
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? t : 0;
+  };
+  const featuredRows = [...featured]
+    .sort((a, b) => pushedTime(b.pushedAt) - pushedTime(a.pushedAt))
+    .slice(0, MAX_ROWS);
+
   const hasRows = useFeatured || repos.length > 0;
 
   return (
@@ -281,9 +306,7 @@ export default function ActivityFeed({
           {hasRows ? (
             <ul className="flex flex-col">
               {useFeatured
-                ? featured
-                    .slice(0, MAX_ROWS)
-                    .map((repo) => (
+                ? featuredRows.map((repo) => (
                       <FeaturedRepoRow
                         key={repo.nameWithOwner}
                         repo={repo}
