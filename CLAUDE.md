@@ -33,8 +33,9 @@ is real, not decorative:
   `#showcase-heading` anchor, `rarityStyles`/`rarityLabels`/`monogram`
   and the `rarity` colour tokens. The `rarity` field survives on each
   project, rendered by nothing — see `profile-data`
-- Recent Activity = one GitHub block of compact rows, three hand-picked
-  repos, each showing name, language and how long ago it was pushed. Plus
+- Recent Activity = one GitHub block of compact rows, the three repos
+  Bradley pushed to most recently, each showing name, language and how
+  long ago it was pushed. Plus
   a dashed placeholder naming the sources that aren't built. **Every
   commit count here is gone** at Bradley's request — the per-row total,
   the "commits past 2 weeks" strip, and the panel-bar sum that was the
@@ -144,15 +145,31 @@ class would stop emitting.
   present (raises the rate limit from 60/hr/IP to 5000/hr) but works fine
   without one. Forks and archived repos are filtered out — they'd
   dominate the "recently played" slot without saying anything.
+- Recent Activity's repo list — `getRecentRepos()` in `src/lib/github.ts`,
+  rendered by `FeaturedRepoRow` in `ActivityFeed`. **The panel is automatic
+  again, at Bradley's request**, after a hand-kept list left it showing
+  two-month-old work three times in one day. **This is not the automatic
+  list that `featuredRepos` replaced**, and the difference is the whole
+  reason it's allowed back: the old one read `getGitHubSnapshot`'s repos,
+  i.e. public repos Bradley *owns*, so it surfaced years-old intro projects
+  while missing his private work and everything he contributes to in
+  someone else's org. This is the authenticated `viewer` query across all
+  three affiliations, so those repos are the first thing it returns. (Watch
+  for this — an `ownerAffiliations: OWNER` query hides collaborations
+  entirely.) Don't "restore" curation here.
+  Two filters, and the second is load-bearing: archived and forked repos
+  are out, and **he must have commits in the repo**. `pushedAt` is the
+  repo's last push by *anyone*, so with `ORGANIZATION_MEMBER` in the query
+  a teammate's push would otherwise put an org repo on this page as
+  Bradley's activity — two such repos sit at zero commits from him right
+  now. What it can't filter is judgement: a push to a coursework repo
+  surfaces that repo, and Bradley chose automatic knowing that. The lever
+  is a skip list in `getRecentRepos`, not a return to hand-picking.
 - Featured repos — `getFeaturedRepos()` in `src/lib/github.ts`, driven by
-  `featuredRepos` in `profile-data.ts`, rendered by `FeaturedRepoRow` in
-  `ActivityFeed` and by the sidebar's Active Repositories block.
-  **This replaced the automatic "most recently pushed public repo" list**,
-  which was structurally incapable of showing the real work: it could only
-  see public repos Bradley *owns*, so it surfaced years-old intro projects
-  while missing both his private repos and the ones he contributes to as a
-  collaborator. (Watch for this — a `ownerAffiliations: OWNER` query hides
-  collaborations entirely.)
+  `featuredRepos` in `profile-data.ts`. **No longer what Recent Activity
+  lists**; it's what gets fetched for the `ghRepo` lookups behind the
+  Experience and Portfolio rows, and the activity panel's fallback if the
+  recency query comes back empty.
   Commits are always reported as **"yours / total"**, never the repo total
   alone: on `sennaicodes/codearenamvp` that's 155 of 2,782, and quoting
   2,782 would overstate his part 18x on a page a reader can check. The

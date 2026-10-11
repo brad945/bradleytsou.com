@@ -665,32 +665,25 @@ export const roles: Role[] = [
 ];
 
 /**
- * The repos Recent Activity actually features, in order, as "owner/name".
+ * The repos with live data behind them, as "owner/name".
  *
- * Replaces the automatic "most recently pushed public repo" list, which
- * surfaced years-old intro projects while missing the real work — most of that
- * lives in private repos or in repos Bradley is a collaborator on rather than
- * owner of, and neither shows up in the public API.
+ * **Recent Activity no longer reads this list.** That panel asks GitHub for
+ * the repos Bradley pushed to most recently — `getRecentRepos` — because a
+ * hand-kept list went stale silently: a repo that isn't on it can't appear, so
+ * the newest row was routinely older than the work being done that day, with
+ * every timestamp on the page still correct.
+ *
+ * What this list still does is decide which repos get *fetched* for the
+ * `ghRepo` lookups behind the Experience and Portfolio rows, where a name has
+ * to resolve to something or the row loses its language and commit counts. It
+ * is also the fallback the activity panel drops to if the recency query comes
+ * back empty, which is why it stays in a sensible order.
  *
  * Naming a private repo here DOES publish its name. That's the deliberate
  * exception to `namedPrivateRepos` below: these are hand-picked. Don't add
  * coursework repos.
  */
 export const featuredRepos: string[] = [
-  /*
-   * This list is the *selection*, not the order. Recent Activity sorts what it
-   * shows by push date (newest first) and takes the first few; the sidebar and
-   * the `ghRepo` lookups order themselves their own way. So adding a repo here
-   * makes it eligible everywhere — where it lands is up to each panel.
-   *
-   * That's why `frankenstein-queue` (then named `artie-queue`) was missing
-   * rather than stale: the GitHub data was
-   * fetching correctly the whole time, but a repo that isn't on this list can't
-   * appear. This list exists precisely so the panel isn't "most recently
-   * pushed" — that ordering surfaced years-old intro repos while missing both
-   * private work and repos Bradley only contributes to. The cost is that new
-   * work has to be added here by hand.
-   */
   "brad945/frankenstein-queue",
   "sennaicodes/deveval",
   "brad945/visionotes",

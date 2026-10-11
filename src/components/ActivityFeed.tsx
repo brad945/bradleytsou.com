@@ -8,6 +8,8 @@ interface ActivityFeedProps {
   snapshot: GitHubSnapshot;
   /** Hand-picked repos. Empty without a token — falls back to the public list. */
   featured: FeaturedRepo[];
+  /** Repos pushed to most recently, newest first. The GitHub block's source. */
+  recent: FeaturedRepo[];
   /** Recently played. Empty when Spotify isn't configured; the block hides. */
   tracks: Track[];
 }
@@ -142,15 +144,15 @@ function TrackRow({ track, now }: { track: Track; now: number }) {
 /**
  * How many repos the GitHub block lists.
  *
- * Sliced here rather than trimmed out of `featuredRepos`, because that list
- * also drives the sidebar's repo block and the `ghRepo` lookups behind the
- * Experience rows — dropping an entry there would pull its data off the page
- * in three places instead of shortening one panel.
+ * Exported because the page asks `getRecentRepos` for exactly this many, so
+ * the fetch and the render can't disagree about how long the list is.
  *
- * So a fourth repo added to `featuredRepos` still fetches and still appears
- * elsewhere; it just doesn't show up here.
+ * It's also the slice for the two fallback paths, which are longer lists kept
+ * for other reasons — `featuredRepos` drives the `ghRepo` lookups behind the
+ * Experience and Portfolio rows, so trimming it there would pull data off the
+ * page in other places instead of shortening one panel.
  */
-const MAX_ROWS = 3;
+export const MAX_ROWS = 3;
 
 /**
  * A featured repo in Steam's "recently played" slot.
@@ -241,24 +243,39 @@ function PublicRepoRow({ repo, now }: { repo: RepoCard; now: number }) {
 export default function ActivityFeed({
   snapshot,
   featured,
+  recent,
   tracks,
 }: ActivityFeedProps) {
   const { repos, fetchedAt } = snapshot;
   const now = Date.parse(fetchedAt);
-  const useFeatured = featured.length > 0;
+  /*
+   * What the panel is named after, finally: the repos he pushed to most
+   * recently, whatever they are — see `getRecentRepos`.
+   *
+   * It was a hand-picked list, and the cost was that the panel went stale
+   * silently while every timestamp on it stayed correct. Sorting by push date
+   * fixed the order and couldn't fix that: a repo off the list can't appear at
+   * all, so the newest row was routinely older than the work being done that
+   * day. Curation still decides the Experience and Portfolio rows, where a
+   * `ghRepo` has to resolve to something; it no longer decides this.
+   *
+   * `featured` is the fallback, and the public list behind it the next one, so
+   * a GraphQL failure or a missing token degrades a step at a time rather than
+   * emptying the panel.
+   */
+  const source = recent.length > 0 ? recent : featured;
+  const useFeatured = source.length > 0;
 
   /*
    * Newest push first.
    *
-   * `featuredRepos` decides *which* repos are eligible, and that is the part
-   * worth keeping by hand: it's what keeps years-old intro repos out while
-   * letting private work and repos Bradley only contributes to in. Order is a
-   * separate question, and this panel is called Recent Activity — so a push
-   * from two months ago sitting above one from this morning read as broken
-   * data even though every timestamp was correct.
+   * `getRecentRepos` already returns this order, so for the normal path this
+   * is a no-op — it's here for the curated fallback, which is authored in
+   * Bradley's own order, and so that neither source can quietly put a push
+   * from two months ago above one from this morning.
    *
-   * Sorted on a copy: `featured` also feeds the Experience rows and the
-   * sidebar's repo block, which order themselves by their own rules.
+   * Sorted on a copy: `featured` also feeds the Experience rows, which order
+   * themselves by their own rules.
    *
    * `pushedAt` is "" for a repo the token can't see, and `Date.parse("")` is
    * NaN, which would make the comparator inconsistent and the sort unstable.
@@ -268,7 +285,7 @@ export default function ActivityFeed({
     const t = Date.parse(iso);
     return Number.isFinite(t) ? t : 0;
   };
-  const featuredRows = [...featured]
+  const featuredRows = [...source]
     .sort((a, b) => pushedTime(b.pushedAt) - pushedTime(a.pushedAt))
     .slice(0, MAX_ROWS);
 

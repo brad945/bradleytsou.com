@@ -611,11 +611,97 @@ function websiteUrl(raw: string | null | undefined): string | null {
 }
 
 /**
- * Hand-picked repos for the "recently played" slot.
+ * One GraphQL request, or null.
  *
- * Needed because the automatic list can only see public repos Bradley *owns*,
- * which misses both his private work and the repos he contributes to as a
- * collaborator — i.e. almost everything that matters.
+ * Shared by the two repo queries below, which need the same auth, the same
+ * cache window and the same "degrade quietly" contract as everything else in
+ * this file. Returns null without a token or on any non-OK response rather
+ * than throwing — a GitHub hiccup costs a panel, not the page.
+ */
+async function githubGraphQL(
+  query: string,
+  variables?: Record<string, unknown>,
+): Promise<{ data?: Record<string, any> } | null> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return null;
+  const res = await fetch(`${API}/graphql`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "User-Agent": "bradleytsou-site",
+    },
+    body: JSON.stringify({ query, variables }),
+    next: { revalidate: REVALIDATE_SECONDS },
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as { data?: Record<string, any> };
+}
+
+/**
+ * The profile owner's own node id.
+ *
+ * The commit-history author filter takes a node id and GraphQL can't derive
+ * one inside the same document, so this is a separate round trip. It's cached
+ * on the same window as everything else and the answer never changes.
+ */
+async function getViewerId(): Promise<string | null> {
+  const me = await githubGraphQL(`query { viewer { id } }`);
+  return me?.data?.viewer?.id ?? null;
+}
+
+/**
+ * Every field behind a `FeaturedRepo`, as one fragment.
+ *
+ * Shared so the two queries can't drift apart — they return the same shape and
+ * `toFeaturedRepo` reads both. Any query spreading it must declare `$who` and
+ * `$since`, which the author-scoped history counts use.
+ */
+const REPO_FRAGMENT = `fragment S on Repository {
+   nameWithOwner name owner { login } isPrivate isArchived url homepageUrl description pushedAt stargazerCount
+   primaryLanguage { name }
+   defaultBranchRef { target { ... on Commit {
+     all: history { totalCount }
+     mine: history(author: {id: $who}) { totalCount }
+     recent: history(author: {id: $who}, since: $since) { totalCount }
+   } } }
+ }`;
+
+/** A `REPO_FRAGMENT` node as the rest of the site consumes it. */
+function toFeaturedRepo(r: any): FeaturedRepo {
+  const target = r.defaultBranchRef?.target;
+  return {
+    nameWithOwner: r.nameWithOwner,
+    name: r.name,
+    owner: r.owner?.login ?? "",
+    isPrivate: Boolean(r.isPrivate),
+    url: r.url,
+    homepage: websiteUrl(r.homepageUrl),
+    description: r.description ?? null,
+    language: r.primaryLanguage?.name ?? null,
+    pushedAt: r.pushedAt ?? "",
+    stars: r.stargazerCount ?? 0,
+    myCommits: target?.mine?.totalCount ?? 0,
+    totalCommits: target?.all?.totalCount ?? 0,
+    myCommitsPast2Weeks: target?.recent?.totalCount ?? 0,
+  };
+}
+
+/** The variables `REPO_FRAGMENT` needs, for either query. */
+function repoQueryVariables(viewerId: string) {
+  return {
+    who: viewerId,
+    since: new Date(Date.now() - TWO_WEEKS_MS).toISOString(),
+  };
+}
+
+/**
+ * Hand-picked repos, by `owner/name`.
+ *
+ * This is no longer what Recent Activity lists — see `getRecentRepos` — but it
+ * is still what the Experience and Portfolio rows look their live data up in,
+ * and it's the fallback if the recency query comes back empty. So the list
+ * stays curated: a role's `ghRepo` has to resolve to something.
  *
  * Commits are reported as "yours / total", never just the repo total: on a
  * shared repo the total says nothing about his contribution, and overstating
@@ -629,29 +715,10 @@ function websiteUrl(raw: string | null | undefined): string | null {
 export async function getFeaturedRepos(
   names: string[],
 ): Promise<FeaturedRepo[]> {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token || names.length === 0) return [];
-
-  const gql = async (query: string, variables?: Record<string, unknown>) => {
-    const res = await fetch(`${API}/graphql`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "User-Agent": "bradleytsou-site",
-      },
-      body: JSON.stringify({ query, variables }),
-      next: { revalidate: REVALIDATE_SECONDS },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as { data?: Record<string, any> };
-  };
+  if (!process.env.GITHUB_TOKEN || names.length === 0) return [];
 
   try {
-    // The author filter takes a node id, which can't be derived in the same
-    // document, so the viewer lookup is a separate (cached) round trip.
-    const me = await gql(`query { viewer { id } }`);
-    const viewerId = me?.data?.viewer?.id;
+    const viewerId = await getViewerId();
     if (!viewerId) return [];
 
     const parsed = names
@@ -669,23 +736,12 @@ export async function getFeaturedRepos(
       )
       .join("\n");
 
-    const body = await gql(
+    const body = await githubGraphQL(
       `query($who: ID!, $since: GitTimestamp!) {
          ${fields}
        }
-       fragment S on Repository {
-         nameWithOwner name owner { login } isPrivate url homepageUrl description pushedAt stargazerCount
-         primaryLanguage { name }
-         defaultBranchRef { target { ... on Commit {
-           all: history { totalCount }
-           mine: history(author: {id: $who}) { totalCount }
-           recent: history(author: {id: $who}, since: $since) { totalCount }
-         } } }
-       }`,
-      {
-        who: viewerId,
-        since: new Date(Date.now() - TWO_WEEKS_MS).toISOString(),
-      },
+       ${REPO_FRAGMENT}`,
+      repoQueryVariables(viewerId),
     );
 
     const data = body?.data;
@@ -695,24 +751,86 @@ export async function getFeaturedRepos(
     parsed.forEach((_, i) => {
       const r = data[`r${i}`];
       if (!r) return; // repo renamed, deleted, or no longer visible to the token
-      const target = r.defaultBranchRef?.target;
-      out.push({
-        nameWithOwner: r.nameWithOwner,
-        name: r.name,
-        owner: r.owner?.login ?? "",
-        isPrivate: Boolean(r.isPrivate),
-        url: r.url,
-        homepage: websiteUrl(r.homepageUrl),
-        description: r.description ?? null,
-        language: r.primaryLanguage?.name ?? null,
-        pushedAt: r.pushedAt ?? "",
-        stars: r.stargazerCount ?? 0,
-        myCommits: target?.mine?.totalCount ?? 0,
-        totalCommits: target?.all?.totalCount ?? 0,
-        myCommitsPast2Weeks: target?.recent?.totalCount ?? 0,
-      });
+      out.push(toFeaturedRepo(r));
     });
     return out;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * How many repos the recency query considers before filtering.
+ *
+ * Deliberately well above the three rows that get shown: archived repos, and
+ * repos Bradley has no commits in, are dropped *after* the fetch, so asking
+ * for exactly three would let one of those shorten the panel.
+ */
+const RECENT_CANDIDATES = 20;
+
+/**
+ * Repos Bradley pushed to most recently — what Recent Activity lists.
+ *
+ * **This is not the automatic list that `featuredRepos` replaced.** That one
+ * read `getGitHubSnapshot`'s repo list, which is public repos he *owns*, so it
+ * surfaced years-old intro projects while missing his private work and
+ * everything he contributes to in someone else's org. This one is the
+ * authenticated `viewer` query across all three affiliations, so the repos that
+ * were invisible to it are the first things it returns.
+ *
+ * Two filters, and the second is the load-bearing one:
+ *
+ * - **Archived and forked repos are out.** They'd crowd the slot without
+ *   saying anything, the same reason `getGitHubSnapshot` drops them.
+ * - **He must have commits in it.** `pushedAt` is the repo's last push by
+ *   *anyone*, and with `ORGANIZATION_MEMBER` in the query a teammate pushing
+ *   to an org repo would otherwise put that repo on this page as Bradley's
+ *   recent activity. Two org repos he's a member of sit there with zero
+ *   commits from him right now, so this isn't hypothetical. The whole site
+ *   reports "yours / total" rather than a repo total for the same reason.
+ *
+ * What it can't filter is judgement: a push to a coursework repo puts that
+ * repo at the top, and the curated list existed partly to keep those out.
+ * Bradley chose automatic over curated knowing that. The lever if it ever
+ * matters is a skip list here, not a return to hand-picking.
+ *
+ * Private repos appear by name, as they already did when hand-picked — they
+ * just aren't linked, since a visitor would get a 404.
+ *
+ * Needs `GITHUB_TOKEN`; without it this is empty and the caller falls back to
+ * the curated list, then to the public one.
+ */
+export async function getRecentRepos(limit: number): Promise<FeaturedRepo[]> {
+  if (!process.env.GITHUB_TOKEN || limit <= 0) return [];
+
+  try {
+    const viewerId = await getViewerId();
+    if (!viewerId) return [];
+
+    const body = await githubGraphQL(
+      `query($who: ID!, $since: GitTimestamp!) {
+         viewer {
+           repositories(
+             first: ${RECENT_CANDIDATES}
+             orderBy: { field: PUSHED_AT, direction: DESC }
+             affiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]
+             ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]
+             isFork: false
+           ) { nodes { ...S } }
+         }
+       }
+       ${REPO_FRAGMENT}`,
+      repoQueryVariables(viewerId),
+    );
+
+    const nodes = body?.data?.viewer?.repositories?.nodes;
+    if (!Array.isArray(nodes)) return [];
+
+    return nodes
+      .filter((r: any) => r && !r.isArchived)
+      .map(toFeaturedRepo)
+      .filter((r) => r.myCommits > 0)
+      .slice(0, limit);
   } catch {
     return [];
   }

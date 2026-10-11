@@ -1,4 +1,4 @@
-import ActivityFeed from "@/components/ActivityFeed";
+import ActivityFeed, { MAX_ROWS } from "@/components/ActivityFeed";
 import AutoRefresh from "@/components/AutoRefresh";
 import BoardedUp from "@/components/BoardedUp";
 import Experience from "@/components/Experience";
@@ -23,6 +23,7 @@ import {
   getContributions,
   getGitHubSnapshot,
   getFeaturedRepos,
+  getRecentRepos,
   getLanguages,
   getLastPush,
   getDiscussionComments,
@@ -60,6 +61,7 @@ export default async function Home() {
     deveval,
     contributions,
     featured,
+    recent,
     languages,
     lastPush,
     commentCount,
@@ -70,6 +72,9 @@ export default async function Home() {
     getDevEvalStats(),
     getContributions(githubUsername),
     getFeaturedRepos(featuredRepos),
+    // The GitHub block's own source: what he pushed to most recently, rather
+    // than the curated list that still backs the Experience rows.
+    getRecentRepos(MAX_ROWS),
     getLanguages(),
     getLastPush(),
     // The comments panel is a real GitHub Discussion, so the sidebar's
@@ -121,6 +126,7 @@ export default async function Home() {
               <ActivityFeed
                 snapshot={snapshot}
                 featured={featured}
+                recent={recent}
                 tracks={tracks}
               />
               <Experience featured={featured} />
