@@ -101,8 +101,16 @@ export function Row({
         `stat` slot went with it rather than being left empty, since an unused
         prop reads as something that broke.
       */}
-      <div className="t-meta shrink-0 leading-snug sm:w-[132px] sm:text-right">
-        <p>{meta}</p>
+      <div className="t-meta shrink-0 leading-snug sm:w-[150px] sm:text-right">
+        {/*
+          `whitespace-nowrap`, and the column widened from 132px to hold it. At
+          13px the longest range ("May 2026 — Aug 2026") measures ~126px, so it
+          sat inside 132 by a few pixels and broke after the em dash on the
+          narrower end of that margin — a date range split across two lines
+          reads as two dates. Nowrap alone would have overflowed left into the
+          blurb, so the width is the other half of the fix.
+        */}
+        <p className="whitespace-nowrap">{meta}</p>
       </div>
     </li>
   );
