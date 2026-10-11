@@ -47,7 +47,7 @@ export interface Project {
    * "owner/name" of the backing GitHub repo, when there is one. Used to attach
    * live commit counts and language in the showcase. Explicit rather than
    * matched on `id`, because repo names and project names diverge — CodeArena
-   * lives in `codearenamvp`.
+   * lives in `sennaicodes/deveval`.
    */
   ghRepo?: string;
   /** e.g. "2026 — present". Free text. Omitted when it isn't known. */
@@ -625,7 +625,7 @@ export const roles: Role[] = [
   {
     org: "DevEval",
     tags: ["Next.js", "TypeScript", "Postgres", "Docker", "Forward-Deployed"],
-    ghRepo: "sennaicodes/codearenamvp",
+    ghRepo: "sennaicodes/deveval",
     title: "Founding Engineer",
     start: "Jan 2026",
     location: "San Francisco, CA",
@@ -692,7 +692,7 @@ export const featuredRepos: string[] = [
    * work has to be added here by hand.
    */
   "brad945/frankenstein-queue",
-  "sennaicodes/codearenamvp",
+  "sennaicodes/deveval",
   "brad945/visionotes",
   "ronoktanvir/Orca",
 ];
@@ -705,8 +705,9 @@ export const featuredRepos: string[] = [
  * projects, and every fetch. This only changes what a reader sees.
  */
 export const repoDisplayNames: Record<string, string> = {
-  // CodeArena was renamed DevEval in mid-2026; the repo kept the old name.
-  "sennaicodes/codearenamvp": "DevEval",
+  // The repo is `deveval` now (renamed from `codearenamvp`), so this only
+  // fixes the capitalisation GitHub can't carry.
+  "sennaicodes/deveval": "DevEval",
 };
 
 /**

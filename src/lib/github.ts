@@ -575,7 +575,7 @@ export interface FeaturedRepo {
    * The repo's own "Website" field on GitHub, when it has one.
    *
    * Fetched rather than kept in a map here, because GitHub already holds it —
-   * `sennaicodes/codearenamvp` has deveval.com set. A hand-kept list would be
+   * `sennaicodes/deveval` has deveval.com set. A hand-kept list would be
    * a second copy of a fact that already exists and can go stale against it.
    */
   homepage: string | null;

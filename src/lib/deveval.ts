@@ -1,6 +1,6 @@
 /**
  * Live stats from DevEval's own API. (The product was called CodeArena until
- * mid-2026; the backing repo is still `codearenamvp`.)
+ * mid-2026, and the repo has since been renamed to match.)
  *
  * The rest of this site proves "every number is fetched, not written" using
  * someone else's API. This block does it with Bradley's own product, which is
