@@ -596,7 +596,7 @@ export const roles: Role[] = [
      * on, "PHI" is what an engineer recognises.
      */
     tags: ["Applied AI", "Cybersecurity", "HIPAA / PHI", "IT Operations"],
-    title: "Applied AI & Software Engineer Intern",
+    title: "AI and SWE Intern",
     start: "May 2026",
     end: "Aug 2026",
     location: "San Diego, CA",
