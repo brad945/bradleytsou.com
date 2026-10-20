@@ -697,6 +697,31 @@ export const featuredRepos: string[] = [
 ];
 
 /**
+ * Repos the activity panel must never list, as "owner/name".
+ *
+ * `getRecentRepos` is automatic — it lists whatever Bradley pushed to most
+ * recently, private repos included — and that's the point of it. But a private
+ * repo's *name* on a public page is a disclosure, and not every one of them is
+ * worth making. This is the one lever over that, and it's a skip list rather
+ * than a return to hand-picking so the default stays "show the work".
+ *
+ * `brad945/conclave` is here at Bradley's request. It went live by name the
+ * day he pushed to it, which is exactly what an automatic panel does.
+ *
+ * `MugetsuChris/obbyberkeley` is the other private repo eligible today and is
+ * deliberately NOT here — it's his call, not a default. Worth knowing that it
+ * needs only a push by *anyone* to reach the top row, because eligibility
+ * counts his lifetime commits in a repo rather than recent ones.
+ *
+ * Keyed on `owner/name` like `featuredRepos`, and GitHub 301s a rename — so a
+ * renamed repo keeps fetching fine and silently stops matching this list,
+ * which is how `codearenamvp` -> `deveval` broke `repoDisplayNames`. Rename one
+ * and this is the second place to edit. Compared case-insensitively, since
+ * GitHub treats repo names that way and this file is hand-typed.
+ */
+export const hiddenFromActivity: string[] = ["brad945/conclave"];
+
+/**
  * Display names for repos whose GitHub name isn't what the thing is called.
  *
  * Keyed by `owner/name`, which stays the API identifier — renaming the repo

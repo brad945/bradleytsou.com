@@ -163,8 +163,12 @@ class would stop emitting.
   a teammate's push would otherwise put an org repo on this page as
   Bradley's activity — two such repos sit at zero commits from him right
   now. What it can't filter is judgement: a push to a coursework repo
-  surfaces that repo, and Bradley chose automatic knowing that. The lever
-  is a skip list in `getRecentRepos`, not a return to hand-picking.
+  surfaces that repo, and Bradley chose automatic knowing that. The lever is
+  **`hiddenFromActivity` in `profile-data`** — a skip list, not a return to
+  hand-picking. `brad945/conclave` is on it at his request: it went live by
+  name the day he pushed to it, which is what an automatic panel does. The
+  other private repo eligible today, `MugetsuChris/obbyberkeley`, is
+  deliberately not, and it's someone else's repo.
 - Featured repos — `getFeaturedRepos()` in `src/lib/github.ts`, driven by
   `featuredRepos` in `profile-data.ts`. **No longer what Recent Activity
   lists**; it's what gets fetched for the `ghRepo` lookups behind the

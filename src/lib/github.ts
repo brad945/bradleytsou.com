@@ -10,7 +10,10 @@
  * the build or 500 the page.
  */
 
-import { PLACEHOLDER_GITHUB_USERNAME } from "@/lib/profile-data";
+import {
+  hiddenFromActivity,
+  PLACEHOLDER_GITHUB_USERNAME,
+} from "@/lib/profile-data";
 
 const API = "https://api.github.com";
 
@@ -791,11 +794,14 @@ const RECENT_CANDIDATES = 20;
  *
  * What it can't filter is judgement: a push to a coursework repo puts that
  * repo at the top, and the curated list existed partly to keep those out.
- * Bradley chose automatic over curated knowing that. The lever if it ever
- * matters is a skip list here, not a return to hand-picking.
+ * Bradley chose automatic over curated knowing that, and the lever over it is
+ * `hiddenFromActivity` in `profile-data` — a skip list, not a return to
+ * hand-picking. It lives there rather than here because it's content he
+ * maintains, next to `featuredRepos`.
  *
  * Private repos appear by name, as they already did when hand-picked — they
- * just aren't linked, since a visitor would get a 404.
+ * just aren't linked, since a visitor would get a 404. That's the disclosure
+ * the skip list exists for.
  *
  * Needs `GITHUB_TOKEN`; without it this is empty and the caller falls back to
  * the curated list, then to the public one.
@@ -826,10 +832,13 @@ export async function getRecentRepos(limit: number): Promise<FeaturedRepo[]> {
     const nodes = body?.data?.viewer?.repositories?.nodes;
     if (!Array.isArray(nodes)) return [];
 
+    const skipped = new Set(hiddenFromActivity.map((n) => n.toLowerCase()));
+
     return nodes
       .filter((r: any) => r && !r.isArchived)
       .map(toFeaturedRepo)
       .filter((r) => r.myCommits > 0)
+      .filter((r) => !skipped.has(r.nameWithOwner.toLowerCase()))
       .slice(0, limit);
   } catch {
     return [];
