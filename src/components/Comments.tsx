@@ -110,7 +110,11 @@ export default function Comments() {
 
       <div className="p-5">
         <p className="t-meta">Sign in with GitHub to post.</p>
-        <div ref={container} className="solid-stop mt-4" />
+        {/* `solid-stop` is gone from here with the exclusive lift — see
+            note 2 in globals.css. giscus is still someone else's document in
+            a cross-origin iframe; it simply no longer needs to say so, since
+            the panel around it holds still either way. */}
+        <div ref={container} className="mt-4" />
       </div>
     </section>
   );

@@ -850,10 +850,17 @@ here, after the DVD logo's travel and the favicon's frames.) The easing
 overshoots, and that overshoot is the bounce. Five rules hold it together,
 each with the symptom it prevents:
 
-- **Only the innermost box moves.** `:has()` reads that; `.solid-stop`
-  marks a region that suppresses its ancestors without being a solid
-  itself. Without it, pointing at one chip heaves the chip, its panel and
-  the column at once.
+- **Lifts nest.** Pointing at a row inside a panel leaves the panel where
+  it is and raises the row off it — nothing implements that, because
+  `:hover` already matches every ancestor of the pointer, so a panel rises
+  once on the way in and holds until the pointer leaves it. It was
+  exclusive first, read with `:has()`: only the innermost box moved and
+  its ancestors were pinned flat. That is right in a still and wrong in
+  motion — the ancestor has to *drop* to get there, so the panel fell 4px
+  at the moment the pointer reached a row and every row you pointed at
+  heaved the panel it was printed on. Bradley reported it as "jumping
+  around way too much". `.solid-stop` went with the exclusive rule; under
+  this one it would put the drop back in the three places it was used.
 - **The walls keep their pointer events**, so the lifted silhouette is a
   superset of the resting one. Without it, pointing near a box's
   bottom-right corner moves it out from under the pointer, which unhovers
@@ -889,10 +896,12 @@ dead strip across the top of every panel instead.
   stick out as square tabs. The ring is also hollow, so an offset copy
   fills its middle with a dark disc behind the numeral.
 - **The photo well inside the avatar frame.** It's a recess, not a box.
-- **The bookshelf, the giscus iframe and `/play`'s 3D canvas**
-  (`.solid-stop`). The shelf and the model were already 3D and have their
-  own motion — the model is dragged to rotate, so the panel behind it
-  would have lifted under the drag. giscus is someone else's document.
+- **The bookshelf, the giscus iframe and `/play`'s 3D canvas.** The shelf
+  and the model were already 3D and have their own motion, and giscus is
+  someone else's document. None of the three is a solid, and none needs to
+  say so any more: they each carried `.solid-stop` to pin the panel behind
+  them flat, and with nested lifts the panel is already raised and holds
+  still for the whole drag.
 - **Valve's Years of Service badge.** The PNG has an alpha channel, so a
   wall on its bounding box would hang off the art. The CS2 logo is opaque
   and does get one.

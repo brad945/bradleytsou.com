@@ -169,13 +169,13 @@ export default function Bookshelf() {
       heading. Raise WIRE_RISE and this has to go up with it.
     */
     /*
-      `solid-stop` — see the solid system in globals.css. The shelf is the one
-      thing on the page that was already 3D, and it has its own motion: a book
-      tips out at -30° under the pointer. Without this the panel behind it
-      counts as the innermost hovered solid and bounces at the same time, so
-      the reference object ends up fighting its own container.
+      This carried `solid-stop`, which pinned Recent Activity flat while the
+      pointer was on the shelf. It went with the exclusive lift — see note 2
+      on the solid system in globals.css. The panel is already raised by the
+      time the pointer gets here, and it now stays raised, so there is nothing
+      for a book tipping out at -30° to fight.
     */
-    <div className="solid-stop mt-12">
+    <div className="mt-12">
       {/*
         A shelf, built as an actual box: back panel, two side walls, a floor,
         and in front of all of it a carcass — two uprights, a board across the

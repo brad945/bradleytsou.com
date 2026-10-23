@@ -248,13 +248,27 @@
    *    Without that, pointing near a box's bottom-right corner moves it out
    *    from under the pointer, which un-hovers it, which drops it back under
    *    the pointer — a flicker loop at the exact spot people aim at.
-   * 2. **Only the innermost box bounces.** `:has()` reads that: a solid with
-   *    a hovered solid inside it stays still and lets the inner one move.
-   *    Otherwise pointing at one chip heaves the chip, its panel and the
-   *    column all at once. `.solid-stop` marks a region that suppresses its
-   *    ancestors the same way without being a solid itself — the bookshelf,
-   *    which is already 3D and has its own motion, and the giscus iframe,
-   *    which is someone else's document.
+   * 2. **Lifts nest; they do not take turns.** Pointing at a row inside a
+   *    panel leaves the panel exactly where it is and raises the row off it.
+   *    Nothing implements that — `:hover` already matches every ancestor of
+   *    the pointer, so a panel rises once on the way in and holds until the
+   *    pointer leaves it, however much happens inside.
+   *
+   *    It was an exclusive rule first, read with `:has()`: only the
+   *    innermost box moved and its ancestors were pinned flat while it did.
+   *    That is right in a still frame and wrong in motion, because the
+   *    ancestor has to *drop* to get there — the panel fell 4px at the exact
+   *    moment the pointer arrived on a row, so every row you pointed at
+   *    heaved the panel it was printed on. Bradley's words for it were "it's
+   *    jumping around way too much", and the panel moving when he pointed at
+   *    DevEval was the thing he actually saw. Nested, the only panel motion
+   *    left is one rise on entry and one fall on exit.
+   *
+   *    `.solid-stop` went with it. It marked a region whose ancestors stayed
+   *    flat — the bookshelf, the giscus iframe, `/play`'s canvas — and under
+   *    this rule it would reintroduce the drop in exactly those three
+   *    places, since each one sits inside a panel the pointer has already
+   *    raised.
    * 3. **No transform at rest.** The hover rule is the only thing that sets
    *    one. A `translate(0, 0)` would still create a stacking context and a
    *    containing block on every panel on the page: a rendering change
@@ -347,18 +361,7 @@
    * was instead a dead zone across the top of every panel.
    */
   @media (hover: hover) and (pointer: fine) {
-    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover:not(
-        :has(
-            :is(
-                .solid,
-                .panel,
-                .steam-button,
-                .stat-row,
-                .solid-hover,
-                .solid-stop
-              ):hover
-          )
-      ) {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover {
       transform: translate(
         calc(var(--depth) * var(--lift-on) * -1),
         calc(var(--depth) * var(--lift-on) * -1)
@@ -367,37 +370,19 @@
        * Over its neighbours while it's up, and deliberately well under the
        * z-20 dropdowns and Exy's z-30 — a panel that lifted over an open
        * menu would cover the thing the pointer was heading for.
+       *
+       * A lifted panel carries a transform, so it becomes a stacking context
+       * and this is scoped to it rather than to the page: a raised row is
+       * over its own panel's content and under the next panel either way.
        */
       z-index: 5;
     }
 
-    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover:not(
-        :has(
-            :is(
-                .solid,
-                .panel,
-                .steam-button,
-                .stat-row,
-                .solid-hover,
-                .solid-stop
-              ):hover
-          )
-      )::before {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover::before {
       transform: skewY(45deg) scaleX(calc(1 + var(--lift-on)));
     }
 
-    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover:not(
-        :has(
-            :is(
-                .solid,
-                .panel,
-                .steam-button,
-                .stat-row,
-                .solid-hover,
-                .solid-stop
-              ):hover
-          )
-      )::after {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover::after {
       transform: skewX(45deg) scaleY(calc(1 + var(--lift-on)));
     }
   }
@@ -500,21 +485,15 @@
   }
 
   @media (hover: hover) and (pointer: fine) {
-    :is(.solid-hover, .stat-row):hover:not(
-        :has(:is(.solid, .solid-hover, .stat-row, .solid-stop):hover)
-      ) {
+    :is(.solid-hover, .stat-row):hover {
       background-color: theme("colors.solidFace");
     }
 
-    :is(.solid-hover, .stat-row):hover:not(
-        :has(:is(.solid, .solid-hover, .stat-row, .solid-stop):hover)
-      )::before {
+    :is(.solid-hover, .stat-row):hover::before {
       background-color: var(--wall-side, theme("colors.solidSide"));
     }
 
-    :is(.solid-hover, .stat-row):hover:not(
-        :has(:is(.solid, .solid-hover, .stat-row, .solid-stop):hover)
-      )::after {
+    :is(.solid-hover, .stat-row):hover::after {
       background-color: var(--wall-foot, theme("colors.solidFoot"));
     }
   }

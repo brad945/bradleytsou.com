@@ -86,12 +86,13 @@ export default async function Play() {
               never collapses while its chunk is still loading.
             */}
             {/*
-              `solid-stop`, like the bookshelf: this is the other thing on the
-              site that was already 3D and has its own motion. Without it the
-              panel behind the canvas is the innermost hovered solid, so it
-              bounces while the model is being dragged around.
+              This carried `solid-stop` so the panel behind it stayed flat
+              while the model was being dragged. Lifts nest now (note 2 in
+              globals.css), so the panel rises once as the pointer arrives and
+              holds for the whole drag — which is what the class was there to
+              get, by the opposite route.
             */}
-            <Model3D className="solid-stop h-[46vh] max-h-[420px] w-full" />
+            <Model3D className="h-[46vh] max-h-[420px] w-full" />
 
             {/*
               `font-sign`, the same face and treatment `BoardedUp` uses for the
