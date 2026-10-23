@@ -123,20 +123,24 @@ function SourceBlock({
  */
 function TrackRow({ track, now }: { track: Track; now: number }) {
   return (
-    <li className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-t border-line/40 py-2 first:border-t-0">
-      <a
-        href={track.url}
-        target="_blank"
-        rel="noreferrer"
-        className="steam-link text-[15px] leading-tight"
-      >
-        {track.title}
-      </a>
-      <span className="t-meta leading-tight">
-        {[track.artist, `${relativeTime(track.playedAt, now)} ago`]
-          .filter(Boolean)
-          .join(" · ")}
-      </span>
+    /* The hairline is on the `li` and the box is the `div`, which stands 8px
+       wider than it on each side — see the row inset in globals.css. */
+    <li className="border-t border-line/40 first:border-t-0">
+      <div className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2">
+        <a
+          href={track.url}
+          target="_blank"
+          rel="noreferrer"
+          className="steam-link text-[15px] leading-tight"
+        >
+          {track.title}
+        </a>
+        <span className="t-meta leading-tight">
+          {[track.artist, `${relativeTime(track.playedAt, now)} ago`]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </div>
     </li>
   );
 }
@@ -197,45 +201,53 @@ function FeaturedRepoRow({ repo, now }: { repo: FeaturedRepo; now: number }) {
   );
 
   return (
-    <li className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-t border-line/40 py-2 first:border-t-0">
-      <span className="flex flex-wrap items-baseline gap-2">
-        {title}
-        {/*
-          Marks a row with nothing to open, which is not the same as a private
-          repo — DevEval's repo is private but its site isn't, so that row is a
-          link and carries no tag.
-        */}
-        {!href && (
-          <span className="solid solid-thin solid-edged border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
-            Private
-          </span>
-        )}
-      </span>
-      <span className="t-meta leading-tight">
-        {[repo.language, `${relativeTime(repo.pushedAt, now)} ago`]
-          .filter(Boolean)
-          .join(" · ")}
-      </span>
+    /* The hairline is on the `li` and the box is the `div`, which stands 8px
+       wider than it on each side — see the row inset in globals.css. */
+    <li className="border-t border-line/40 first:border-t-0">
+      <div className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2">
+        <span className="flex flex-wrap items-baseline gap-2">
+          {title}
+          {/*
+            Marks a row with nothing to open, which is not the same as a private
+            repo — DevEval's repo is private but its site isn't, so that row is a
+            link and carries no tag.
+          */}
+          {!href && (
+            <span className="solid solid-thin solid-edged border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
+              Private
+            </span>
+          )}
+        </span>
+        <span className="t-meta leading-tight">
+          {[repo.language, `${relativeTime(repo.pushedAt, now)} ago`]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </div>
     </li>
   );
 }
 
 function PublicRepoRow({ repo, now }: { repo: RepoCard; now: number }) {
   return (
-    <li className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-t border-line/40 py-2 first:border-t-0">
-      <a
-        href={repo.url}
-        target="_blank"
-        rel="noreferrer"
-        className="steam-link text-[15px] leading-tight"
-      >
-        {repo.name}
-      </a>
-      <span className="t-meta leading-tight">
-        {[repo.language, `${relativeTime(repo.pushedAt, now)} ago`]
-          .filter(Boolean)
-          .join(" · ")}
-      </span>
+    /* The hairline is on the `li` and the box is the `div`, which stands 8px
+       wider than it on each side — see the row inset in globals.css. */
+    <li className="border-t border-line/40 first:border-t-0">
+      <div className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2">
+        <a
+          href={repo.url}
+          target="_blank"
+          rel="noreferrer"
+          className="steam-link text-[15px] leading-tight"
+        >
+          {repo.name}
+        </a>
+        <span className="t-meta leading-tight">
+          {[repo.language, `${relativeTime(repo.pushedAt, now)} ago`]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </div>
     </li>
   );
 }

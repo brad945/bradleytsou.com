@@ -44,43 +44,47 @@ export default function Reviews({
             ? `${live.total.toLocaleString()} hrs on record`
             : review.hours;
           return (
+          /* Hairline on the `li`, box on the `div` — the row inset in
+             globals.css. */
           <li
             key={review.subject}
-            className="solid-hover flex gap-4 border-t border-line/50 py-4 first:border-t-0"
+            className="border-t border-line/50 first:border-t-0"
           >
-            {/*
-              The verdict as a colour bar rather than a badge. Steam uses a
-              thumb icon; a bar carries the same information at a glance
-              without importing an icon set for two states.
-            */}
-            <span
-              aria-hidden
-              className={`mt-1 w-[3px] shrink-0 self-stretch ${
-                review.recommended ? "bg-live" : "bg-danger"
-              }`}
-            />
+            <div className="solid-hover flex gap-4 py-4">
+              {/*
+                The verdict as a colour bar rather than a badge. Steam uses a
+                thumb icon; a bar carries the same information at a glance
+                without importing an icon set for two states.
+              */}
+              <span
+                aria-hidden
+                className={`mt-1 w-[3px] shrink-0 self-stretch ${
+                  review.recommended ? "bg-live" : "bg-danger"
+                }`}
+              />
 
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <span
-                  className={`label text-[10px] ${
-                    review.recommended ? "text-live" : "text-danger"
-                  }`}
-                >
-                  {review.recommended ? "Recommended" : "Not recommended"}
-                </span>
-                {/*
-                  Free text, so an estimate can carry its own tilde. See the
-                  note on `Review.hours` — this page has to say which figures
-                  are measured and which are guessed.
-                */}
-                <span className="t-meta">{hours}</span>
-              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <span
+                    className={`label text-[10px] ${
+                      review.recommended ? "text-live" : "text-danger"
+                    }`}
+                  >
+                    {review.recommended ? "Recommended" : "Not recommended"}
+                  </span>
+                  {/*
+                    Free text, so an estimate can carry its own tilde. See the
+                    note on `Review.hours` — this page has to say which figures
+                    are measured and which are guessed.
+                  */}
+                  <span className="t-meta">{hours}</span>
+                </div>
 
-              <h3 className="mt-1 text-[16px] leading-tight text-bright">
-                {review.subject}
-              </h3>
-              <p className="t-body mt-1.5">{review.body}</p>
+                <h3 className="mt-1 text-[16px] leading-tight text-bright">
+                  {review.subject}
+                </h3>
+                <p className="t-body mt-1.5">{review.body}</p>
+            </div>
             </div>
           </li>
           );

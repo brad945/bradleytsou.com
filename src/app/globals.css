@@ -479,6 +479,33 @@
     --lift-on: 0.6667;
   }
 
+  /*
+   * A row's box is 8px wider than its text on each side, and the text does
+   * not move to pay for it: the negative margin is exactly undone by the
+   * padding, so the content box is the width it always was and nothing on
+   * the page reflows by a pixel.
+   *
+   * Without it a row's box *is* its text's box — "DevEval" began at the
+   * row's own left edge — so the slab that rises under the pointer had its
+   * first glyph printed on the join between the face and the left wall.
+   * Bradley: "the text is on the very, very, very left of the box". The
+   * other way to fix it is to indent the text, which spends 16px of column
+   * and moves every row on the page to change how one of them looks raised.
+   *
+   * It needs the hairline above a row to live on the row's **parent**. A
+   * border on the row itself widens with it, and a separator running 8px
+   * past the panel's own padding is a change to the resting page — which is
+   * the one thing none of this is allowed to do. Experience, the activity
+   * rows, Reviews and Achievements all draw it on the `li` for that reason.
+   *
+   * The 8px has to fit inside whatever the row sits in. Every container
+   * today gives it 16-20px, so it does, with room for the wall as well.
+   */
+  :is(.solid-hover, .stat-row) {
+    margin-inline: -8px;
+    padding-inline: 8px;
+  }
+
   :is(.solid-hover, .stat-row)::before,
   :is(.solid-hover, .stat-row)::after {
     background-color: transparent;

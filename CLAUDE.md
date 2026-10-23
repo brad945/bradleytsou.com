@@ -906,6 +906,18 @@ dead strip across the top of every panel instead.
   wall on its bounding box would hang off the art. The CS2 logo is opaque
   and does get one.
 
+**Rows stand 8px wider than their text**, on each side, and the text does
+not move to pay for it: `margin-inline: -8px` is undone by an equal
+`padding-inline`, so the content box is the width it always was and nothing
+reflows. Without it a row's box *is* its text's box, so the slab that rises
+under the pointer printed its first glyph on the join between the face and
+the wall — Bradley's words were "the text is on the very, very, very left
+of the box". **The hairline above a row has to live on the row's parent**
+for this to work: a border on the row widens with it, and a separator
+running 8px past the panel's own padding is a change to the resting page.
+That's why Experience, the activity rows, Reviews and Achievements are all
+`li > div.solid-hover` with the border on the `li`.
+
 **Two traps worth not relearning.** `--bw` exists because percentages on
 an absolutely positioned child resolve against the *padding* box: on a
 bordered box, `left: 100%` lands one pixel inside the border and the wall

@@ -44,49 +44,53 @@ export function Row({
   award?: string;
 }) {
   return (
-    <li className="solid-hover flex flex-col gap-x-6 gap-y-1 border-t border-line/50 py-3 sm:flex-row">
-      <div className="min-w-0 sm:w-[190px] sm:shrink-0">
-        {href ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="steam-link text-[15px]"
-          >
-            {title}
-          </a>
-        ) : (
-          <span className="text-[15px] text-copy">{title}</span>
-        )}
-        {/*
-          Marks a project whose repo a visitor can't open. It's shown instead
-          of a link rather than beside one — the point is that there's nothing
-          to click, not that the link is restricted.
-        */}
-        {isPrivate && (
-          <span className="solid solid-thin solid-edged ml-2 border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
-            Private
-          </span>
-        )}
-        {/*
-          Accent gold, and the only chip on either page that is. Private is
-          `line`/`muted` because it marks an absence — nothing to click — and
-          this marks the opposite, so borrowing that styling would have made a
-          prize look like a restriction.
+    /* The hairline stays on the `li` and the box is the `div`, which stands
+       8px wider than it on each side — see the row inset in globals.css. A
+       border on the box itself would widen with it. */
+    <li className="border-t border-line/50">
+      <div className="solid-hover flex flex-col gap-x-6 gap-y-1 py-3 sm:flex-row">
+        <div className="min-w-0 sm:w-[190px] sm:shrink-0">
+          {href ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="steam-link text-[15px]"
+            >
+              {title}
+            </a>
+          ) : (
+            <span className="text-[15px] text-copy">{title}</span>
+          )}
+          {/*
+            Marks a project whose repo a visitor can't open. It's shown instead
+            of a link rather than beside one — the point is that there's nothing
+            to click, not that the link is restricted.
+          */}
+          {isPrivate && (
+            <span className="solid solid-thin solid-edged ml-2 border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
+              Private
+            </span>
+          )}
+          {/*
+            Accent gold, and the only chip on either page that is. Private is
+            `line`/`muted` because it marks an absence — nothing to click — and
+            this marks the opposite, so borrowing that styling would have made a
+            prize look like a restriction.
 
-          On its own line under the title, at Bradley's request. `flex w-fit`
-          rather than `inline-block`, and that's the part that matters: the
-          title is an `<a>`, so an inline-block chip after it simply shares its
-          line whenever there's room. It needs to be block-level to sit under
-          anything, and `w-fit` keeps it hugging its text instead of spanning
-          the 190px column.
-        */}
-        {award && (
-          <span className="solid solid-thin solid-edged mt-1 flex w-fit whitespace-nowrap border border-accent/60 px-1.5 py-px text-[10px] uppercase tracking-wider text-accent">
-            {award}
-          </span>
-        )}
-        {subtitle && <p className="t-meta mt-0.5 leading-snug">{subtitle}</p>}
+            On its own line under the title, at Bradley's request. `flex w-fit`
+            rather than `inline-block`, and that's the part that matters: the
+            title is an `<a>`, so an inline-block chip after it simply shares its
+            line whenever there's room. It needs to be block-level to sit under
+            anything, and `w-fit` keeps it hugging its text instead of spanning
+            the 190px column.
+          */}
+          {award && (
+            <span className="solid solid-thin solid-edged mt-1 flex w-fit whitespace-nowrap border border-accent/60 px-1.5 py-px text-[10px] uppercase tracking-wider text-accent">
+              {award}
+            </span>
+          )}
+          {subtitle && <p className="t-meta mt-0.5 leading-snug">{subtitle}</p>}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -124,6 +128,7 @@ export function Row({
           of overflowing left into the blurb.
         */}
         {metaSub && <p className="text-muted/70">{metaSub}</p>}
+        </div>
       </div>
     </li>
   );
