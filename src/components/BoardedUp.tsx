@@ -15,7 +15,7 @@
  */
 export default function BoardedUp() {
   return (
-    <div className="mt-3 flex h-[220px] items-center justify-center rounded-panel bg-base">
+    <div className="solid mt-3 flex h-[220px] items-center justify-center rounded-panel bg-base">
       {/*
         `font-sign` is Gabarito Medium, loaded in layout.tsx for this one
         element — a free stand-in for BB Casual Pro Medium, which needs a paid

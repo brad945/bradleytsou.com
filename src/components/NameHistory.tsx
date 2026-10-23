@@ -87,7 +87,7 @@ export default function NameHistory({ name, aliases }: NameHistoryProps) {
         </button>
 
         {open && (
-          <div className="absolute left-0 top-full z-20 mt-1 w-[212px] bg-menu shadow-[0_4px_14px_rgba(0,0,0,0.55)]">
+          <div className="solid absolute left-0 top-full z-20 mt-1 w-[212px] bg-menu shadow-[0_4px_14px_rgba(0,0,0,0.55)]">
             {/*
               212px is set by this line, not chosen round: at 13px it measures
               ~175px and the 12px side padding takes it to ~200, so the header

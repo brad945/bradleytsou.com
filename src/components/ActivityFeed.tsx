@@ -123,7 +123,7 @@ function SourceBlock({
  */
 function TrackRow({ track, now }: { track: Track; now: number }) {
   return (
-    <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-t border-line/40 py-2 first:border-t-0">
+    <li className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-t border-line/40 py-2 first:border-t-0">
       <a
         href={track.url}
         target="_blank"
@@ -197,7 +197,7 @@ function FeaturedRepoRow({ repo, now }: { repo: FeaturedRepo; now: number }) {
   );
 
   return (
-    <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-t border-line/40 py-2 first:border-t-0">
+    <li className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-t border-line/40 py-2 first:border-t-0">
       <span className="flex flex-wrap items-baseline gap-2">
         {title}
         {/*
@@ -206,7 +206,7 @@ function FeaturedRepoRow({ repo, now }: { repo: FeaturedRepo; now: number }) {
           link and carries no tag.
         */}
         {!href && (
-          <span className="border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
+          <span className="solid solid-thin solid-edged border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
             Private
           </span>
         )}
@@ -222,7 +222,7 @@ function FeaturedRepoRow({ repo, now }: { repo: FeaturedRepo; now: number }) {
 
 function PublicRepoRow({ repo, now }: { repo: RepoCard; now: number }) {
   return (
-    <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-t border-line/40 py-2 first:border-t-0">
+    <li className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-t border-line/40 py-2 first:border-t-0">
       <a
         href={repo.url}
         target="_blank"
@@ -337,7 +337,7 @@ export default function ActivityFeed({
                     ))}
             </ul>
           ) : (
-            <div className="bg-panel2/70 px-5 py-10 text-center">
+            <div className="solid bg-panel2/70 px-5 py-10 text-center">
               <p className="t-label">
                 {snapshot.error ?? "No repository activity to show"}
               </p>

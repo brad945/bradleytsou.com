@@ -121,7 +121,7 @@ export default function Portfolio({ featured }: { featured: FeaturedRepo[] }) {
                   )}
                 </ul>
               ) : (
-                <p className="mt-2 border border-dashed border-line px-3 py-2 text-[13px] text-muted">
+                <p className="solid solid-thin solid-edged mt-2 border border-dashed border-line px-3 py-2 text-[13px] text-muted">
                   {cat.empty}
                 </p>
               )}

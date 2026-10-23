@@ -299,7 +299,7 @@ export default function ProfileHeader({ stats }: ProfileHeaderProps) {
               className="absolute bottom-[6px] left-full h-[104px] w-[183px]"
             />
 
-            <div className="relative w-fit border border-b-frameLo border-l-frameHi border-r-frameLo border-t-frameHi bg-avatar-frame px-[17px] py-[9px]">
+            <div className="solid solid-deep solid-edged solid-steel relative w-fit border border-b-frameLo border-l-frameHi border-r-frameLo border-t-frameHi bg-avatar-frame px-[17px] py-[9px]">
               <div className="relative h-[169px] w-[169px] overflow-hidden border border-b-frameHi border-l-frameLo border-r-frameHi border-t-frameLo bg-base">
                 {/* The `profile.initials` fallback that used to sit here is
                     gone with it: it existed because the GitHub avatar could
@@ -476,7 +476,7 @@ export default function ProfileHeader({ stats }: ProfileHeaderProps) {
             className="mt-4 block"
             note={<em>an estimate</em>}
           >
-            <div className="flex items-center gap-3 bg-panel2/70 p-3">
+            <div className="solid flex items-center gap-3 bg-panel2/70 p-3">
               {badge ? (
                 /*
                 Valve's own badge art, at Bradley's explicit request — the one
@@ -496,7 +496,7 @@ export default function ProfileHeader({ stats }: ProfileHeaderProps) {
                   className="h-14 w-14 shrink-0"
                 />
               ) : (
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center border border-accent/40 bg-panel2/80 text-[20px] font-light text-accent">
+                <span className="solid solid-thin solid-edged flex h-14 w-14 shrink-0 items-center justify-center border border-accent/40 bg-panel2/80 text-[20px] font-light text-accent">
                   {years}
                 </span>
               )}

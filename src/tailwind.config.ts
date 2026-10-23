@@ -97,10 +97,62 @@ const tokens = {
   /** Raised-bevel highlight (top/left edges) and shadow (bottom/right). */
   frameHi: "#b0b5bb",
   frameLo: "#3e4247",
+  /*
+   * The frame's underside, now that the frame is a solid with sides you can
+   * see (`.solid-steel`). It has to be darker than `frameLo`, which the side
+   * wall uses, and `frameLo` in turn darker than the face's own darkest
+   * corner — the `avatar-frame` gradient bottoms out at `steelDark` #4b4f55,
+   * so anything lighter than that leaves the side reading as a *highlight* on
+   * the bottom-right, which is the opposite of where the light is.
+   *
+   * Neutral grey on purpose. The generic black veil the other solids use
+   * would composite over the page behind the frame rather than over the
+   * frame, so it comes out blue — a shadow cast on the column instead of the
+   * side of a metal band.
+   */
+  steelShade: "#33363a",
   /** Slate background of the alias dropdown. */
   menu: "#464c58",
   /** Global nav bar — Steam's header sits darker and bluer than the page. */
   chrome: "#171a21",
+  /*
+   * ## The solids — every box on this site has thickness now
+   *
+   * `.solid` in globals.css draws two walls on a box: the right-hand one and
+   * its underside, which are the two faces in shadow when the light is at the
+   * top-left, as it is everywhere here.
+   *
+   * **They are black at low alpha, not colours**, and that's what makes one
+   * pair of values correct on every material on the page — a panel, a teal
+   * bar, a chip, a button, the hero column. It's the same derivation Steam
+   * uses for the panels themselves: `panel` and `panel2` are `rgba(0,0,0,.3)`
+   * and `.5` composited over the page, and these are the same veil over
+   * whatever happens to be behind the box. Pick literal hexes instead and
+   * every new material needs a new pair.
+   *
+   * The underside is darker than the side because it is: it faces away from
+   * the light twice over. Same ordering as the bookshelf's five faces, where
+   * the front lip — the one you see the underside of — is the darkest of
+   * them.
+   *
+   * A box on a *light* material inverts that assumption, so the avatar frame
+   * overrides both (`.solid-steel`); its walls are steel greys, because a
+   * black veil over a brushed-metal band reads as grime rather than as the
+   * side of the frame.
+   */
+  solidSide: "rgba(0, 0, 0, 0.42)",
+  solidFoot: "rgba(0, 0, 0, 0.6)",
+  /*
+   * The face a hover-only solid picks up while it's lifted.
+   *
+   * Rows — repos, roles, stat lines — are not boxes at rest: they're text on
+   * the panel with a hairline above them, and giving them a resting fill
+   * would be redrawing the page rather than extruding it. So they stay
+   * exactly as they were until you point at one, and this is the whisper of
+   * white that makes the thing that lifts read as a slab instead of as two
+   * dark bands floating beside some text.
+   */
+  solidFace: "rgba(255, 255, 255, 0.045)",
 };
 
 /**

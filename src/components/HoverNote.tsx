@@ -79,7 +79,7 @@ export default function HoverNote({
       {children}
       <span
         aria-hidden
-        className={`pointer-events-none invisible absolute top-full z-40 mt-1 w-max max-w-[280px] border border-line bg-menu px-2 py-1.5 text-[11px] leading-snug text-ink opacity-0 shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-[opacity,visibility] delay-0 duration-0 group-hover/note:visible group-hover/note:opacity-100 ${
+        className={`solid solid-thin solid-edged pointer-events-none invisible absolute top-full z-40 mt-1 w-max max-w-[280px] border border-line bg-menu px-2 py-1.5 text-[11px] leading-snug text-ink opacity-0 shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-[opacity,visibility] delay-0 duration-0 group-hover/note:visible group-hover/note:opacity-100 ${
           delay ? "group-hover/note:delay-500" : ""
         } ${align === "right" ? "right-0" : "left-0"}`}
       >

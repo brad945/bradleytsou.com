@@ -168,7 +168,14 @@ export default function Bookshelf() {
       block by about 38px, and at the smaller margin they crossed the Books
       heading. Raise WIRE_RISE and this has to go up with it.
     */
-    <div className="mt-12">
+    /*
+      `solid-stop` — see the solid system in globals.css. The shelf is the one
+      thing on the page that was already 3D, and it has its own motion: a book
+      tips out at -30° under the pointer. Without this the panel behind it
+      counts as the innermost hovered solid and bounces at the same time, so
+      the reference object ends up fighting its own container.
+    */
+    <div className="solid-stop mt-12">
       {/*
         A shelf, built as an actual box: back panel, two side walls, a floor,
         and in front of all of it a carcass — two uprights, a board across the

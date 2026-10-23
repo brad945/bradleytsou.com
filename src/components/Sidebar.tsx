@@ -58,7 +58,17 @@ function Stat({
   );
 
   return href ? (
-    <a href={href} className="stat-row group/stat transition-colors">
+    /*
+      **No `transition-colors` here, deliberately.** The row is a solid (see
+      globals.css): a `transition-*` utility sits in a later layer than the
+      solid system and replaces its `transition-property: transform` outright,
+      which snapped the face to its lifted position while the walls still grew
+      over 260ms — the base lifting off the page is the one thing the lift is
+      built not to do. It was animating nothing anyway; the hover colour is on
+      the label below, through `group-hover/stat`, and that span carries no
+      transition of its own.
+    */
+    <a href={href} className="stat-row group/stat">
       {body}
     </a>
   ) : (
@@ -327,7 +337,7 @@ export default function Sidebar({
             {techStack.map((tech) => (
               <li
                 key={tech}
-                className="border border-line/70 bg-panel2/60 px-2 py-1 text-[12px] leading-none text-copy"
+                className="solid solid-thin solid-edged border border-line/70 bg-panel2/60 px-2 py-1 text-[12px] leading-none text-copy"
               >
                 {tech}
               </li>
@@ -351,7 +361,7 @@ export default function Sidebar({
             {langs.map((language) => (
               <li
                 key={language.name}
-                className="flex items-baseline justify-between gap-2 py-1"
+                className="solid-hover flex items-baseline justify-between gap-2 py-1"
               >
                 <span className="t-body">{language.name}</span>
                 <span className="t-meta">

@@ -32,7 +32,7 @@ export default function Inventory() {
               <li key={item.name} className="flex gap-3">
                 <span
                   aria-hidden
-                  className={`flex h-[52px] w-[52px] shrink-0 items-center justify-center border bg-panel2/70 text-[14px] font-light ${tile}`}
+                  className={`solid solid-thin solid-edged flex h-[52px] w-[52px] shrink-0 items-center justify-center border bg-panel2/70 text-[14px] font-light ${tile}`}
                 >
                   {item.code}
                 </span>

@@ -44,7 +44,7 @@ export function Row({
   award?: string;
 }) {
   return (
-    <li className="flex flex-col gap-x-6 gap-y-1 border-t border-line/50 py-3 sm:flex-row">
+    <li className="solid-hover flex flex-col gap-x-6 gap-y-1 border-t border-line/50 py-3 sm:flex-row">
       <div className="min-w-0 sm:w-[190px] sm:shrink-0">
         {href ? (
           <a
@@ -64,7 +64,7 @@ export function Row({
           to click, not that the link is restricted.
         */}
         {isPrivate && (
-          <span className="ml-2 border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
+          <span className="solid solid-thin solid-edged ml-2 border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
             Private
           </span>
         )}
@@ -82,7 +82,7 @@ export function Row({
           the 190px column.
         */}
         {award && (
-          <span className="mt-1 flex w-fit whitespace-nowrap border border-accent/60 px-1.5 py-px text-[10px] uppercase tracking-wider text-accent">
+          <span className="solid solid-thin solid-edged mt-1 flex w-fit whitespace-nowrap border border-accent/60 px-1.5 py-px text-[10px] uppercase tracking-wider text-accent">
             {award}
           </span>
         )}

@@ -783,6 +783,137 @@ new ones.
 Reusable Steam-shaped classes (`.panel`, `.panel-bar`, `.stat-row`,
 `.steam-link`, `.steam-button`) live in `src/app/globals.css`.
 
+## The solids — every box on this page has thickness
+
+The page is 3D. Every element that already read as a box — panels, title
+bars, the avatar frame, buttons, menus, chips, tiles — is now a solid with
+two visible walls, and it stands up off the page when you point at it.
+Everything that was *not* a box stays flat: the blue column, the nav bar,
+the bio lines, the footer. Bradley asked for this directly, and the
+sentence that governs every decision below is his: **"do not change how
+anything looks visually"** — pull the 2D page into 3D and leave the blank
+space 2D.
+
+The system is `.solid` in `src/app/globals.css`, where the geometry and
+the reasoning are written out in full. The short version:
+
+**It is drawn, not filmed, and the constraint is what picked that.** A
+perspective camera — CSS `perspective`, three.js, any of it — magnifies a
+face as it comes toward the viewer. A panel 10px proud of the page under
+`perspective: 1800px` renders 0.8% larger and a few pixels further from
+the vanishing point, so every panel edge and every line of type inside it
+moves. **Oblique projection** is the one projection where the front plane
+is parallel to the picture plane and therefore projects at exactly 1:1.
+The faces are untouched *by construction*, which is also why there is no
+JS, nothing to recompute on resize, and nothing to re-sync on scroll.
+
+**three.js was considered and is not used.** It is already a dependency —
+`/play` runs a react-three-fiber scene — so this is not about adding one.
+Putting the profile in WebGL would mean rasterising live text, links, Exy
+and the giscus iframe into textures: it loses selectable text, the
+accessibility tree, and every one of those features, to render something
+that by definition can't match the page it replaced. `CSS3DRenderer`
+doesn't help — it reparents each element to the renderer's container, so
+`section`/`h2` nesting is gone. The honest third option is a WebGL canvas
+*behind* the DOM drawing only the walls, with the camera matched to the
+layout; it is real work for a seam that CSS doesn't have, and at these
+depths (3-10px) perspective convergence across a wall is sub-pixel, so it
+would look identical. `/` ships 106 kB of JS; `/play`, with three in it,
+ships 367 kB.
+
+**The depth axis runs 45° to the bottom-right**, so a box shows its right
+wall and its underside. Not arbitrary: this site lights everything from
+the top-left (`avatar-frame`, the bookshelf's five faces), and those are
+the two faces that should be in shadow. The walls are `solidSide` /
+`solidFoot` — black at low alpha over whatever is behind the box, the same
+derivation Steam uses for the panel fills themselves, which is why one
+pair of values is right on every material here.
+
+**Depths, and why each is what it is.** A nested solid must be shallower
+than the whitespace under it, or its walls land on content:
+
+| What | Depth | The clearance that sets it |
+| --- | --- | --- |
+| `.panel` | 10px | 12px between panels (`gap-3`), 16px in the sidebar |
+| `.solid` default | 6px | tiles and cards inside a panel's `p-5` |
+| `.panel-bar`, `.solid-thin` | 3px | Experience's body is `pt-1` — 4px under the bar |
+| `.steam-button` | 4px | `gap-2` between Message and More |
+
+**On hover the face slides up the depth axis and the walls grow with it**,
+so the base stays planted and the box reads as standing up rather than
+sliding. `--lift-on` is the lift as a fraction of the depth — 0.5, and 0.4
+on panels, which are big enough that more heaved the column as the pointer
+crossed it. **Its product with the depth has to be a whole number of
+pixels**: the lifted face carries text, and a face parked on a fractional
+offset gets re-antialiased there. (That's the third time this has come up
+here, after the DVD logo's travel and the favicon's frames.) The easing
+overshoots, and that overshoot is the bounce. Five rules hold it together,
+each with the symptom it prevents:
+
+- **Only the innermost box moves.** `:has()` reads that; `.solid-stop`
+  marks a region that suppresses its ancestors without being a solid
+  itself. Without it, pointing at one chip heaves the chip, its panel and
+  the column at once.
+- **The walls keep their pointer events**, so the lifted silhouette is a
+  superset of the resting one. Without it, pointing near a box's
+  bottom-right corner moves it out from under the pointer, which unhovers
+  it, which drops it back — a flicker loop at the exact spot people aim
+  at.
+- **Nothing is transformed at rest.** A `translate(0, 0)` still creates a
+  stacking context and a containing block on every panel: a rendering
+  change dressed as a no-op.
+- **No lift on a touch screen** (`hover: hover` and `pointer: fine`) and
+  none under `prefers-reduced-motion`, which sets `--lift-on: 0`. The
+  walls stay in both cases — a box having sides is not motion.
+- **A solid must not carry a `transition-*` utility.** Utilities land in a
+  later layer and replace `transition-property: transform` outright, so
+  the face snaps to its lifted position while the walls still grow over
+  260ms — the base coming off the page, which is the one thing the lift is
+  built not to do. The sidebar's stat link had `transition-colors` and did
+  exactly that; it was animating nothing, since the hover colour is on the
+  label through `group-hover/stat`.
+
+**The panel bar is the one solid that doesn't lift.** It has walls, but it
+is absent from every hover selector, so pointing at a title bar raises the
+panel it's printed on — which is what it is. In the lift system it was a
+dead strip across the top of every panel instead.
+
+**What is deliberately flat, and don't "fix" it:**
+
+- **The nav bar and the centred column.** Both are full-bleed at some
+  width, so a wall would project past the viewport and add horizontal
+  scroll. They're also the right things to be flat: the column is the
+  surface the panels stick out *of*.
+- **Round boxes** — the Level ring and the parked Reactions pills. The
+  walls are rectangles butted against the face's edges; on a circle they
+  stick out as square tabs. The ring is also hollow, so an offset copy
+  fills its middle with a dark disc behind the numeral.
+- **The photo well inside the avatar frame.** It's a recess, not a box.
+- **The bookshelf, the giscus iframe and `/play`'s 3D canvas**
+  (`.solid-stop`). The shelf and the model were already 3D and have their
+  own motion — the model is dragged to rotate, so the panel behind it
+  would have lifted under the drag. giscus is someone else's document.
+- **Valve's Years of Service badge.** The PNG has an alpha channel, so a
+  wall on its bounding box would hang off the art. The CS2 logo is opaque
+  and does get one.
+
+**Two traps worth not relearning.** `--bw` exists because percentages on
+an absolutely positioned child resolve against the *padding* box: on a
+bordered box, `left: 100%` lands one pixel inside the border and the wall
+paints over the edge it is meant to start from — hence `.solid-edged`.
+And a child flush with its parent's right edge gets no right wall
+(`.panel-bar`, `.solid-foot`), or it draws a bar wider than the box it
+sits on.
+
+**How to prove a change here didn't alter the page.** Screenshot the page,
+then — *in the same render* — inject `content: none` on the walls and
+screenshot again; two page loads would differ anyway, because the times
+are relative and the rows are live. Every changed pixel must fall inside
+an expected wall quad, which you can compute from each solid's
+`getBoundingClientRect()` and its `--depth`. That run is what this was
+landed on: 81 solids on `/`, 14 on `/about`, zero changed pixels outside a
+wall.
+
 **The rarity tokens are gone**, along with `nebula`, `plum` and `wine`.
 The first three fed only the deleted Item Showcase; `plum` and `wine` were
 never referenced at all, shadowed by `teal` and `chrome`. If tiers ever
@@ -949,6 +1080,11 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   `motion-safe`, and the flying emoji don't spawn at all under
   `prefers-reduced-motion`. The rule still stands — don't read these as
   licence.
+  **A fifth, and the largest: the solids' hover bounce**, asked for by
+  name in the same message that asked for the page to be 3D. It lands on
+  the right side of the same line — nothing moves until it is pointed at,
+  and the lift is off entirely under `prefers-reduced-motion` and on
+  touch screens. See "The solids" above.
 - **Close visual fidelity to Steam's profile layout is intentional** —
   Bradley asked for it directly, superseding the earlier "inspired by the
   structure of, not a literal skin" note. Don't undo it. The carve-out

@@ -110,7 +110,7 @@ export default function Comments() {
 
       <div className="p-5">
         <p className="t-meta">Sign in with GitHub to post.</p>
-        <div ref={container} className="mt-4" />
+        <div ref={container} className="solid-stop mt-4" />
       </div>
     </section>
   );

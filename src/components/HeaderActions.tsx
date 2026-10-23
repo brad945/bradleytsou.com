@@ -116,7 +116,7 @@ export default function HeaderActions({
         {open === "message" && (
           /* Left-aligned: Message is the leftmost control, so the panel grows
              rightward. The mirror of what More does. */
-          <div className="absolute left-0 top-full z-20 mt-1 w-[240px] bg-menu py-1 shadow-[0_4px_14px_rgba(0,0,0,0.55)]">
+          <div className="solid absolute left-0 top-full z-20 mt-1 w-[240px] bg-menu py-1 shadow-[0_4px_14px_rgba(0,0,0,0.55)]">
             {/*
               Labelled "(Mac)" at Bradley's request. It isn't Mac-only —
               mailto: works anywhere a mail client is registered — but this is
@@ -163,7 +163,7 @@ export default function HeaderActions({
         </button>
 
         {open === "more" && (
-          <div className="absolute right-0 top-full z-20 mt-1 w-[220px] bg-menu py-1 shadow-[0_4px_14px_rgba(0,0,0,0.55)]">
+          <div className="solid absolute right-0 top-full z-20 mt-1 w-[220px] bg-menu py-1 shadow-[0_4px_14px_rgba(0,0,0,0.55)]">
             {profileUrl && (
               <a
                 href={profileUrl}

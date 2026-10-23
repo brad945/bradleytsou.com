@@ -179,11 +179,364 @@
   .steam-button {
     @apply inline-flex items-center justify-center rounded-[2px] bg-ink/[0.12] px-4 py-[6px] text-[14px] text-ink/90 transition-colors hover:bg-ink/20 hover:text-ink;
   }
+
+  /*
+   * ============================================================
+   * Solids — the page's boxes, with thickness
+   * ============================================================
+   *
+   * Every box on this site is an object now: it has depth, you can see its
+   * sides, and it stands up when you point at it. **Nothing about the front
+   * of one changed**, and that constraint is what picked the technique.
+   *
+   * ## Why the sides are drawn, and not filmed
+   *
+   * "3D, sticking out, but don't change how anything looks" only holds
+   * together in one projection. A perspective camera magnifies a face as it
+   * comes toward the viewer: a panel 10px proud of the page under
+   * `perspective: 1800px` renders 0.8% larger and a few pixels further from
+   * the vanishing point, so every panel edge and every line of type inside it
+   * moves. **Oblique projection** — the cabinet/cavalier family that
+   * technical drawings use — is the one that doesn't. The front plane stays
+   * parallel to the screen, so it projects at exactly 1:1 and only the depth
+   * axis is drawn at an angle. The face is untouched *by construction*
+   * rather than by compensation, which is why there is no transform on it at
+   * rest and nothing to recompute on resize.
+   *
+   * The depth axis runs 45° toward the bottom-right, so a box shows two
+   * walls: its right-hand side and its underside. That direction isn't a
+   * preference either — this site lights everything from the top-left
+   * (`avatar-frame`, the bookshelf's five faces, the frame bevel), and those
+   * are exactly the two faces that should be in shadow.
+   *
+   * ## The geometry
+   *
+   * The walls are the element's own two pseudo-elements, sheared 45°. For a
+   * face [0,W]x[0,H] at depth d:
+   *
+   *   right wall  (W,0) (W,H) (W+d,H+d) (W+d,d)   left:100%  skewY(45deg)
+   *   underside   (0,H) (W,H) (W+d,H+d) (d,H+d)   top:100%   skewX(45deg)
+   *
+   * At exactly 45° with `transform-origin: 0 0` those two quads tile the
+   * silhouette and **meet along the diagonal with zero overlap** — which is
+   * load-bearing, because the walls are translucent veils and a corner that
+   * overlapped would double-darken. Skew by anything but 45 and it does.
+   *
+   * ## Walls are veils, not colours
+   *
+   * `solidSide` / `solidFoot` are black at low alpha over whatever is behind
+   * the box — see the note on them in the Tailwind config for why that's one
+   * pair of values for every material here rather than a pair per material.
+   *
+   * ## The lift
+   *
+   * On hover the face slides up-left along the depth axis and the walls grow
+   * by the same amount, so the **base stays planted** and what you see is the
+   * box standing up off the page rather than sliding across it. One knob
+   * drives both: `--lift-on` is the lift as a fraction of the depth, and the
+   * walls scale by `1 + --lift-on`. Set it to 0 and the solid is static,
+   * which is exactly what `prefers-reduced-motion` does below.
+   *
+   * The easing overshoots — the second control point is past 1 — and that
+   * overshoot is the bounce. No keyframes, and it reverses correctly when the
+   * pointer leaves mid-flight, which a keyframed bounce does not.
+   *
+   * Four things that look like details and are not:
+   *
+   * 1. **The walls keep their pointer events.** They are part of the box's
+   *    hit area, so the lifted silhouette is a superset of the resting one.
+   *    Without that, pointing near a box's bottom-right corner moves it out
+   *    from under the pointer, which un-hovers it, which drops it back under
+   *    the pointer — a flicker loop at the exact spot people aim at.
+   * 2. **Only the innermost box bounces.** `:has()` reads that: a solid with
+   *    a hovered solid inside it stays still and lets the inner one move.
+   *    Otherwise pointing at one chip heaves the chip, its panel and the
+   *    column all at once. `.solid-stop` marks a region that suppresses its
+   *    ancestors the same way without being a solid itself — the bookshelf,
+   *    which is already 3D and has its own motion, and the giscus iframe,
+   *    which is someone else's document.
+   * 3. **No transform at rest.** The hover rule is the only thing that sets
+   *    one. A `translate(0, 0)` would still create a stacking context and a
+   *    containing block on every panel on the page: a rendering change
+   *    dressed up as a no-op.
+   * 4. **`--bw` is the element's border width**, and the walls need it
+   *    because percentages on an absolutely positioned child resolve against
+   *    the *padding* box. On a bordered box — the chips, the avatar frame —
+   *    `left: 100%` lands one pixel inside the border and the wall paints
+   *    over the edge it is supposed to start from.
+   *
+   * Nothing moves unless it is pointed at, so this stays on the same side of
+   * the no-decorative-motion rule as the bookshelf and the mark's hop.
+   */
+  :is(.solid, .panel, .panel-bar, .steam-button, .stat-row, .solid-hover) {
+    position: relative;
+    /*
+     * Depth along the 45° axis. A nested solid has to stay shallower than
+     * the whitespace under it or its walls land on the content below — the
+     * panel bar has 4px of clearance inside Experience, which is what sets
+     * its 3. The depths in use are tabled in CLAUDE.md.
+     */
+    --depth: 6px;
+    /*
+     * The lift, as a fraction of the depth. 0 is a static solid.
+     *
+     * **Pick a value whose product with the depth is a whole number of
+     * pixels.** The lifted face carries text, and a face parked on a
+     * fractional offset is re-antialiased at that offset: at 0.7 x 4px the
+     * Message button's label came back visibly soft against its resting
+     * state. This site has been bitten by subpixel rasterisation twice
+     * already — the DVD logo's travel and the favicon's frames — and both
+     * notes say the same thing, which is to land on whole pixels rather
+     * than to blur slightly and hope.
+     *
+     * One knob rather than a lift and a growth factor, because those two
+     * have to satisfy `grow = 1 + lift / depth` and nothing would catch
+     * them drifting apart. Here the walls simply scale by `1 + --lift-on`,
+     * so the base is planted by construction.
+     *
+     * 0.5 x 6px = 3px here; the overrides below are 0.4 x 10 and 0.6667 x 3.
+     */
+    --lift-on: 0.5;
+    /* Border width, for the wall geometry. See note 4 above. */
+    --bw: 0px;
+    --solid-ms: 260ms;
+    --solid-ease: cubic-bezier(0.34, 1.7, 0.5, 1);
+    transition-property: transform;
+    transition-duration: var(--solid-ms);
+    transition-timing-function: var(--solid-ease);
+  }
+
+  :is(.solid, .panel, .panel-bar, .steam-button, .stat-row, .solid-hover)::before,
+  :is(.solid, .panel, .panel-bar, .steam-button, .stat-row, .solid-hover)::after {
+    content: "";
+    position: absolute;
+    transform-origin: 0 0;
+    transition-property: transform, background-color;
+    transition-duration: var(--solid-ms);
+    transition-timing-function: var(--solid-ease);
+  }
+
+  /* The right-hand wall. */
+  :is(.solid, .panel, .panel-bar, .steam-button, .stat-row, .solid-hover)::before {
+    top: calc(-1 * var(--bw));
+    left: 100%;
+    margin-left: var(--bw);
+    width: var(--depth);
+    height: calc(100% + 2 * var(--bw));
+    background-color: var(--wall-side, theme("colors.solidSide"));
+    transform: skewY(45deg);
+  }
+
+  /* The underside. */
+  :is(.solid, .panel, .panel-bar, .steam-button, .stat-row, .solid-hover)::after {
+    top: 100%;
+    margin-top: var(--bw);
+    left: calc(-1 * var(--bw));
+    width: calc(100% + 2 * var(--bw));
+    height: var(--depth);
+    background-color: var(--wall-foot, theme("colors.solidFoot"));
+    transform: skewX(45deg);
+  }
+
+  /*
+   * **The panel bar is absent from every selector below**, and that is the
+   * whole of its hover behaviour: it keeps its walls, it never lifts on its
+   * own, and it does not suppress its parent. So pointing at a title bar
+   * raises the panel it is printed on — which is what it is, a plate on the
+   * panel's face rather than a box sitting beside it. In the lift system it
+   * was instead a dead zone across the top of every panel.
+   */
+  @media (hover: hover) and (pointer: fine) {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover:not(
+        :has(
+            :is(
+                .solid,
+                .panel,
+                .steam-button,
+                .stat-row,
+                .solid-hover,
+                .solid-stop
+              ):hover
+          )
+      ) {
+      transform: translate(
+        calc(var(--depth) * var(--lift-on) * -1),
+        calc(var(--depth) * var(--lift-on) * -1)
+      );
+      /*
+       * Over its neighbours while it's up, and deliberately well under the
+       * z-20 dropdowns and Exy's z-30 — a panel that lifted over an open
+       * menu would cover the thing the pointer was heading for.
+       */
+      z-index: 5;
+    }
+
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover:not(
+        :has(
+            :is(
+                .solid,
+                .panel,
+                .steam-button,
+                .stat-row,
+                .solid-hover,
+                .solid-stop
+              ):hover
+          )
+      )::before {
+      transform: skewY(45deg) scaleX(calc(1 + var(--lift-on)));
+    }
+
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover:not(
+        :has(
+            :is(
+                .solid,
+                .panel,
+                .steam-button,
+                .stat-row,
+                .solid-hover,
+                .solid-stop
+              ):hover
+          )
+      )::after {
+      transform: skewX(45deg) scaleY(calc(1 + var(--lift-on)));
+    }
+  }
+
+  /*
+   * Depths, shallowest container to deepest. The hierarchy is the point: a
+   * box nested in another should stand off it by less than its parent stands
+   * off the page, or the two read as the same slab.
+   */
+  .panel {
+    --depth: 10px;
+    /*
+     * Panels lift less than the small stuff, proportionally. They're the
+     * biggest things on the page and you cross several of them just moving
+     * the pointer about; at 0.7 the column heaved on the way past.
+     */
+    --lift-on: 0.4;
+  }
+
+  /*
+   * The title plate, raised off the panel's own face.
+   *
+   * **No right wall.** It spans the panel's full width, so one would be drawn
+   * outside the panel's face — it would read as a bar wider than the box it
+   * sits on. The underside's far tip still crosses that edge, but it lands
+   * inside the panel's own 10px wall, which is where a slab's corner
+   * genuinely would sit.
+   */
+  .panel-bar {
+    --depth: 3px;
+  }
+
+  .panel-bar::before {
+    content: none;
+  }
+
+  .steam-button {
+    --depth: 4px;
+    /* Re-states the colour transition `transition-colors` set, which the
+       solid rule's `transition-property` would otherwise drop. */
+    transition-property: transform, color, background-color;
+  }
+
+  /* Opt-in depths for everything that isn't one of the shared classes. */
+  .solid-deep {
+    --depth: 10px;
+  }
+
+  .solid-thin {
+    --depth: 3px;
+    /* 0.6667 x 3px = 2px. See the note on `--lift-on`: the product has to be
+       a whole pixel, and a third of a 3px depth is too small to read. */
+    --lift-on: 0.6667;
+  }
+
+  /* A box with a 1px border — see note 4 on the solid system. */
+  .solid-edged {
+    --bw: 1px;
+  }
+
+  /* Underside only, for anything flush with its parent's right edge. */
+  .solid-foot::before {
+    content: none;
+  }
+
+  /*
+   * Steel walls, for a box on a light material. The avatar frame is the only
+   * one: a black veil over a brushed-metal band reads as grime rather than as
+   * the side of the frame, because the band is lighter than the page and the
+   * veil's job is to look like the same material turned away from the light.
+   */
+  .solid-steel {
+    --wall-side: theme("colors.frameLo");
+    --wall-foot: theme("colors.steelShade");
+  }
+
+  /*
+   * A solid only while you're pointing at it.
+   *
+   * Rows — repos, roles, tracks, stat lines — are not boxes at rest. They're
+   * text on the panel's face with a hairline above them, and giving them
+   * walls and a fill at rest would be redrawing the page rather than
+   * extruding it. So they keep their geometry exactly and the walls fade in
+   * under the pointer, with `solidFace` behind them so what rises reads as a
+   * slab rather than as two dark bands beside some text.
+   *
+   * The boxes are still there at rest, invisible — which is deliberate, since
+   * that keeps the hit area the same shape as a full solid's and the flicker
+   * loop in note 1 stays fixed.
+   */
+  :is(.solid-hover, .stat-row) {
+    --depth: 3px;
+    /* 2px, as `.solid-thin` — see the note on `--lift-on`. */
+    --lift-on: 0.6667;
+  }
+
+  :is(.solid-hover, .stat-row)::before,
+  :is(.solid-hover, .stat-row)::after {
+    background-color: transparent;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    :is(.solid-hover, .stat-row):hover:not(
+        :has(:is(.solid, .solid-hover, .stat-row, .solid-stop):hover)
+      ) {
+      background-color: theme("colors.solidFace");
+    }
+
+    :is(.solid-hover, .stat-row):hover:not(
+        :has(:is(.solid, .solid-hover, .stat-row, .solid-stop):hover)
+      )::before {
+      background-color: var(--wall-side, theme("colors.solidSide"));
+    }
+
+    :is(.solid-hover, .stat-row):hover:not(
+        :has(:is(.solid, .solid-hover, .stat-row, .solid-stop):hover)
+      )::after {
+      background-color: var(--wall-foot, theme("colors.solidFoot"));
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  /*
+   * The solids keep their walls — a box having sides is not motion — but
+   * nothing lifts. Zeroing the one knob does both halves of it: the face
+   * stays put and the walls scale by `1 + 0`.
+   *
+   * Without this the rule below would still "work", in the sense that the
+   * lift would land in 0.01ms. An instant 7px jump under the pointer is
+   * worse than no lift at all, and it's the thing someone asking for reduced
+   * motion is asking not to have.
+   */
+  :is(.solid, .panel, .panel-bar, .steam-button, .stat-row, .solid-hover) {
+    --lift-on: 0;
   }
 
   *,

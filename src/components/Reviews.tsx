@@ -46,7 +46,7 @@ export default function Reviews({
           return (
           <li
             key={review.subject}
-            className="flex gap-4 border-t border-line/50 py-4 first:border-t-0"
+            className="solid-hover flex gap-4 border-t border-line/50 py-4 first:border-t-0"
           >
             {/*
               The verdict as a colour bar rather than a badge. Steam uses a

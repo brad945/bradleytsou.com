@@ -51,7 +51,7 @@ export default function Achievements() {
         {ordered.map((a) => (
           <li
             key={a.name}
-            className="flex items-start gap-4 border-t border-line/50 py-2.5 first:border-t-0"
+            className="solid-hover flex items-start gap-4 border-t border-line/50 py-2.5 first:border-t-0"
           >
             {/*
               No star tile, at Bradley's request. `unlocked` is still what the

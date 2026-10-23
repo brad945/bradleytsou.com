@@ -90,7 +90,7 @@ export default function FavoriteGame({
           rel="noreferrer"
           aria-hidden
           tabIndex={-1}
-          className="shrink-0"
+          className="solid shrink-0"
         >
           <Image
             src="/cs2-logo.png"
