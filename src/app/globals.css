@@ -311,6 +311,13 @@
      * 0.5 x 6px = 3px here; the overrides below are 0.4 x 10 and 0.6667 x 3.
      */
     --lift-on: 0.5;
+    /*
+     * The lift a click presses it to, and a negative `--lift-on` is all it
+     * is — see the press rule below. -0.3333 is 1px on the 3px rows and 2px
+     * on the 6px default, both whole, which is the same constraint the lift
+     * has and for the same reason.
+     */
+    --press-on: -0.3333;
     /* Border width, for the wall geometry. See note 4 above. */
     --bw: 0px;
     --solid-ms: 260ms;
@@ -361,7 +368,10 @@
    * was instead a dead zone across the top of every panel.
    */
   @media (hover: hover) and (pointer: fine) {
-    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):is(
+        :hover,
+        :active
+      ) {
       transform: translate(
         calc(var(--depth) * var(--lift-on) * -1),
         calc(var(--depth) * var(--lift-on) * -1)
@@ -378,12 +388,44 @@
       z-index: 5;
     }
 
-    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover::before {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):is(
+        :hover,
+        :active
+      )::before {
       transform: skewY(45deg) scaleX(calc(1 + var(--lift-on)));
     }
 
-    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):hover::after {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):is(
+        :hover,
+        :active
+      )::after {
       transform: skewX(45deg) scaleY(calc(1 + var(--lift-on)));
+    }
+
+    /*
+     * The press.
+     *
+     * A solid you can click sinks when you click it: the face drops past the
+     * page plane and the walls shrink with it. That is the lift run
+     * backwards, so it needs no geometry of its own — `--press-on` is just a
+     * negative `--lift-on`, the same two rules above draw it, and the base
+     * stays planted on the way down exactly as it does on the way up.
+     *
+     * **Scoped to `a` and `button`**, because the press says "that did
+     * something" and only those two did. It has to be: `:active` applies to
+     * the whole chain from the activated element upward, so without the
+     * element check, clicking a row would press the row, its panel and
+     * anything else around it at the same time.
+     *
+     * 90ms and no overshoot on the way down — an acknowledgement wants to be
+     * immediate, and the bounce is the wrong shape for a surface being
+     * pushed. Releasing drops both overrides, so the way back up is the
+     * normal 260ms bounce.
+     */
+    :is(a, button):is(.solid, .steam-button, .stat-row, .solid-hover):active {
+      --lift-on: var(--press-on);
+      --solid-ms: 90ms;
+      --solid-ease: ease-out;
     }
   }
 
@@ -421,6 +463,8 @@
 
   .steam-button {
     --depth: 4px;
+    /* -0.25 x 4px = 1px, as the rows. See `--press-on`. */
+    --press-on: -0.25;
     /* Re-states the colour transition `transition-colors` set, which the
        solid rule's `transition-property` would otherwise drop. */
     transition-property: transform, color, background-color;
@@ -543,6 +587,7 @@
    */
   :is(.solid, .panel, .panel-bar, .steam-button, .stat-row, .solid-hover) {
     --lift-on: 0;
+    --press-on: 0;
   }
 
   *,

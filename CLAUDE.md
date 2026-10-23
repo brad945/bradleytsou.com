@@ -918,6 +918,16 @@ running 8px past the panel's own padding is a change to the resting page.
 That's why Experience, the activity rows, Reviews and Achievements are all
 `li > div.solid-hover` with the border on the `li`.
 
+**A clickable solid sinks when you click it.** The face drops past the
+page plane and the walls shrink with it, which is the lift run backwards
+— `--press-on` is a negative `--lift-on`, so the same two rules draw it
+and nothing about the geometry is new. 90ms and no overshoot going down,
+because an acknowledgement wants to be immediate; releasing drops the
+overrides and the way back up is the usual 260ms bounce. **Scoped to `a`
+and `button`**, and it has to be: `:active` applies to the whole chain
+from the activated element upward, so without the element check clicking
+a row would press its panel too.
+
 **A row that links somewhere is the link**, at Bradley's request — "I
 don't have to click on DevEval, the text. Make the entire thing
 clickable." So the box that lifts under the pointer and the thing you can
@@ -1117,6 +1127,9 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   the right side of the same line — nothing moves until it is pointed at,
   and the lift is off entirely under `prefers-reduced-motion` and on
   touch screens. See "The solids" above.
+  **A sixth: the press**, asked for in the message after it — a clickable
+  solid sinks under a click. It's the lift run backwards and it fires on
+  the click itself, so it's about as far inside the line as motion gets.
 - **Close visual fidelity to Steam's profile layout is intentional** —
   Bradley asked for it directly, superseding the earlier "inspired by the
   structure of, not a literal skin" note. Don't undo it. The carve-out
