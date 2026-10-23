@@ -263,8 +263,10 @@ class would stop emitting.
   The DVD logo is sized off the reference too — ~42% of the photo width.
   Here that's 69x39 (40.8%), rounded to the nearest size whose travel
   divides evenly by the step count; see the jitter note below.
-  The only thing that moves or changes colour is the DVD logo bouncing
-  screensaver-style inside the 150px box. It changes colour **only on
+  The only thing that moves *on its own* is the DVD logo bouncing
+  screensaver-style inside the 150px box — the frame around it also leans
+  toward the cursor, but only while the cursor is near it; see
+  `AvatarTilt.tsx` and "The solids" below. It changes colour **only on
   wall contact**, like the real screensaver. `tintKeyframes()` builds
   that: with `alternate`, each axis ends an iteration against a wall,
   so hits land every 1.5s (x) and 1.7s (y), and the pattern repeats
@@ -918,6 +920,22 @@ running 8px past the panel's own padding is a change to the resting page.
 That's why Experience, the activity rows, Reviews and Achievements are all
 `li > div.solid-hover` with the border on the `li`.
 
+**The avatar frame is the one solid that doesn't lift — it leans.** At
+Bradley's request, in the message that asked for the rest of these fixes:
+"instead of poking out on the hover animation, just have it follow the
+cursor when it gets close to it." So it starts reaching ~110px out and the
+corner nearest the cursor comes forward. `AvatarTilt.tsx` owns it and the
+reasoning: it's the only place on the site with a camera in it, which is
+allowed there and nowhere else because it only happens while the pointer
+is within reach (so the resting page never sees it) and because what's
+inside is a photograph rather than type. The component adds `solid-track`
+itself, which is the whole fallback — no JS, a touch screen or
+`prefers-reduced-motion` and the class never lands, so the frame keeps the
+ordinary lift it's excluded from. The walls stay in CSS, scaled by
+`--track-k` against the same `--lift-on` as everything else. Known and
+accepted: the lean creeps 5px over Exy's tail, taking the clickable strip
+from 31px to 26px — the file records why that's left alone.
+
 **A clickable solid sinks when you click it.** The face drops past the
 page plane and the walls shrink with it, which is the lift run backwards
 — `--press-on` is a negative `--lift-on`, so the same two rules draw it
@@ -1130,6 +1148,13 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   **A sixth: the press**, asked for in the message after it — a clickable
   solid sinks under a click. It's the lift run backwards and it fires on
   the click itself, so it's about as far inside the line as motion gets.
+  **A seventh, and the only one that breaks the shape of the rule: the
+  avatar frame leaning toward the cursor**, asked for by name in the same
+  message. Everything else here waits to be pointed at or clicked; this
+  one starts moving while the pointer is still ~110px away. That is the
+  whole point of it and Bradley asked for exactly that, so don't "fix" it
+  — and equally, don't read it as licence for anything else that reacts
+  to a pointer it isn't under.
 - **Close visual fidelity to Steam's profile layout is intentional** —
   Bradley asked for it directly, superseding the earlier "inspired by the
   structure of, not a literal skin" note. Don't undo it. The carve-out

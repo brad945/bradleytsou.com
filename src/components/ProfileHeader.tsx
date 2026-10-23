@@ -1,4 +1,5 @@
 import Image from "next/image";
+import AvatarTilt from "@/components/AvatarTilt";
 import HeaderActions from "@/components/HeaderActions";
 import HoverNote from "@/components/HoverNote";
 import NameHistory from "@/components/NameHistory";
@@ -299,7 +300,14 @@ export default function ProfileHeader({ stats }: ProfileHeaderProps) {
               className="absolute bottom-[6px] left-full h-[104px] w-[183px]"
             />
 
-            <div className="solid solid-deep solid-edged solid-steel relative w-fit border border-b-frameLo border-l-frameHi border-r-frameLo border-t-frameHi bg-avatar-frame px-[17px] py-[9px]">
+            {/*
+              The frame leans toward the cursor instead of lifting, at
+              Bradley's request — see `AvatarTilt.tsx`, which owns the
+              tracking and adds `solid-track` itself so that a browser which
+              can't or shouldn't track keeps the ordinary hover lift. The
+              class string is otherwise exactly what the plain `div` carried.
+            */}
+            <AvatarTilt className="solid solid-deep solid-edged solid-steel relative w-fit border border-b-frameLo border-l-frameHi border-r-frameLo border-t-frameHi bg-avatar-frame px-[17px] py-[9px]">
               <div className="relative h-[169px] w-[169px] overflow-hidden border border-b-frameHi border-l-frameLo border-r-frameHi border-t-frameLo bg-base">
                 {/* The `profile.initials` fallback that used to sit here is
                     gone with it: it existed because the GitHub avatar could
@@ -333,7 +341,7 @@ export default function ProfileHeader({ stats }: ProfileHeaderProps) {
                   </span>
                 </span>
               </div>
-            </div>
+            </AvatarTilt>
           </div>
 
           <div className="min-w-0 flex-1">

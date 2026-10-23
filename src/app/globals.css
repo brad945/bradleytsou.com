@@ -279,8 +279,11 @@
    *    `left: 100%` lands one pixel inside the border and the wall paints
    *    over the edge it is supposed to start from.
    *
-   * Nothing moves unless it is pointed at, so this stays on the same side of
-   * the no-decorative-motion rule as the bookshelf and the mark's hop.
+   * Nothing moves unless it is pointed at or clicked, so this stays on the
+   * same side of the no-decorative-motion rule as the bookshelf and the
+   * mark's hop. **One exception, asked for by name**: the avatar frame
+   * starts leaning before the pointer reaches it — see `.solid-track` below
+   * and `AvatarTilt.tsx`.
    */
   :is(.solid, .panel, .panel-bar, .steam-button, .stat-row, .solid-hover) {
     position: relative;
@@ -368,10 +371,9 @@
    * was instead a dead zone across the top of every panel.
    */
   @media (hover: hover) and (pointer: fine) {
-    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):is(
-        :hover,
-        :active
-      ) {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):not(
+        .solid-track
+      ):is(:hover, :active) {
       transform: translate(
         calc(var(--depth) * var(--lift-on) * -1),
         calc(var(--depth) * var(--lift-on) * -1)
@@ -388,17 +390,15 @@
       z-index: 5;
     }
 
-    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):is(
-        :hover,
-        :active
-      )::before {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):not(
+        .solid-track
+      ):is(:hover, :active)::before {
       transform: skewY(45deg) scaleX(calc(1 + var(--lift-on)));
     }
 
-    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):is(
-        :hover,
-        :active
-      )::after {
+    :is(.solid, .panel, .steam-button, .stat-row, .solid-hover):not(
+        .solid-track
+      ):is(:hover, :active)::after {
       transform: skewX(45deg) scaleY(calc(1 + var(--lift-on)));
     }
 
@@ -501,6 +501,34 @@
   .solid-steel {
     --wall-side: theme("colors.frameLo");
     --wall-foot: theme("colors.steelShade");
+  }
+
+  /*
+   * A solid that leans toward the cursor rather than lifting.
+   *
+   * The avatar frame is the only one, and it is the only place on this page
+   * with a camera in it — see `AvatarTilt.tsx` for why a rotation is allowed
+   * there and nowhere else. The class is added by that component once it has
+   * decided to track, so without JS, on a touch screen or under
+   * `prefers-reduced-motion` it never lands and the frame keeps the ordinary
+   * lift it is excluded from above.
+   *
+   * The face's transform is set inline, frame by frame. The walls stay here,
+   * because they are pseudo-elements and have no inline style to set:
+   * `--track-k` runs 0 to 1 with the lean and multiplies the same
+   * `--lift-on` the lift uses, so the sides grow by exactly as much as the
+   * face rises, and the base stays planted as it does everywhere else.
+   */
+  .solid-track {
+    --track-k: 0;
+  }
+
+  .solid-track::before {
+    transform: skewY(45deg) scaleX(calc(1 + var(--lift-on) * var(--track-k)));
+  }
+
+  .solid-track::after {
+    transform: skewX(45deg) scaleY(calc(1 + var(--lift-on) * var(--track-k)));
   }
 
   /*
