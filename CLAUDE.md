@@ -918,6 +918,17 @@ running 8px past the panel's own padding is a change to the resting page.
 That's why Experience, the activity rows, Reviews and Achievements are all
 `li > div.solid-hover` with the border on the `li`.
 
+**A row that links somewhere is the link**, at Bradley's request — "I
+don't have to click on DevEval, the text. Make the entire thing
+clickable." So the box that lifts under the pointer and the thing you can
+click are the same rectangle, which is what a raised slab implies anyway.
+The repo, track and role rows are `li > a.solid-hover` where there's an
+href and `li > div.solid-hover` where there isn't; the name inside keeps
+`.steam-link`'s two colours but takes the blue one from `group-hover/row`
+rather than from its own `hover:`, which would only fire over the glyphs.
+**The anchor must not carry `transition-colors`** — that's the trap above,
+and `.steam-link` includes it, which is why the name is a `span` now.
+
 **Two traps worth not relearning.** `--bw` exists because percentages on
 an absolutely positioned child resolve against the *padding* box: on a
 bordered box, `left: 100%` lands one pixel inside the border and the wall

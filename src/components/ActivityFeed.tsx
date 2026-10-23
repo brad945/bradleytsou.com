@@ -116,6 +116,53 @@ function SourceBlock({
 }
 
 /**
+ * The shell every activity row shares.
+ *
+ * **The whole row is the link**, not just the name on it, at Bradley's
+ * request — "I don't have to click on DevEval, the text. Make the entire
+ * thing clickable". So the box that lifts under the pointer and the thing you
+ * can click are the same rectangle, which is what a raised slab implies
+ * anyway. A row with nowhere to go renders the same box as a `div`.
+ *
+ * Three pieces, and each is where it is for a reason: the hairline on the
+ * `li`, because the box inside it stands 8px wider than the text and a border
+ * would widen with it; `group/row` so the name can still turn blue from a
+ * hover anywhere on the row; and **no `transition-*` utility on the box
+ * itself**, which would replace the solid system's `transition-property:
+ * transform` outright — see the note in globals.css.
+ */
+function RowShell({
+  href,
+  children,
+}: {
+  href?: string;
+  children: React.ReactNode;
+}) {
+  const box =
+    "solid-hover group/row flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2";
+
+  return (
+    <li className="border-t border-line/40 first:border-t-0">
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" className={box}>
+          {children}
+        </a>
+      ) : (
+        <div className={box}>{children}</div>
+      )}
+    </li>
+  );
+}
+
+/**
+ * A row's name. Blue on a hover anywhere in the row rather than on itself —
+ * `.steam-link`'s own `hover:` would only fire over the glyphs, which is the
+ * target this row exists to widen.
+ */
+const rowTitle =
+  "text-[15px] leading-tight text-ink transition-colors group-hover/row:text-link";
+
+/**
  * A single Spotify row: track on the left, artist and when on the right.
  *
  * Same shape as the repo rows above it deliberately — two sources reading the
@@ -123,25 +170,14 @@ function SourceBlock({
  */
 function TrackRow({ track, now }: { track: Track; now: number }) {
   return (
-    /* The hairline is on the `li` and the box is the `div`, which stands 8px
-       wider than it on each side — see the row inset in globals.css. */
-    <li className="border-t border-line/40 first:border-t-0">
-      <div className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2">
-        <a
-          href={track.url}
-          target="_blank"
-          rel="noreferrer"
-          className="steam-link text-[15px] leading-tight"
-        >
-          {track.title}
-        </a>
-        <span className="t-meta leading-tight">
-          {[track.artist, `${relativeTime(track.playedAt, now)} ago`]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
-      </div>
-    </li>
+    <RowShell href={track.url}>
+      <span className={rowTitle}>{track.title}</span>
+      <span className="t-meta leading-tight">
+        {[track.artist, `${relativeTime(track.playedAt, now)} ago`]
+          .filter(Boolean)
+          .join(" · ")}
+      </span>
+    </RowShell>
   );
 }
 
@@ -188,67 +224,45 @@ function FeaturedRepoRow({ repo, now }: { repo: FeaturedRepo; now: number }) {
   const href = repo.homepage ?? (repo.isPrivate ? undefined : repo.url);
 
   const title = href ? (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="steam-link text-[15px] leading-tight"
-    >
-      {label}
-    </a>
+    <span className={rowTitle}>{label}</span>
   ) : (
     <span className="text-[15px] leading-tight text-copy">{label}</span>
   );
 
   return (
-    /* The hairline is on the `li` and the box is the `div`, which stands 8px
-       wider than it on each side — see the row inset in globals.css. */
-    <li className="border-t border-line/40 first:border-t-0">
-      <div className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2">
-        <span className="flex flex-wrap items-baseline gap-2">
-          {title}
-          {/*
-            Marks a row with nothing to open, which is not the same as a private
-            repo — DevEval's repo is private but its site isn't, so that row is a
-            link and carries no tag.
-          */}
-          {!href && (
-            <span className="solid solid-thin solid-edged border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
-              Private
-            </span>
-          )}
-        </span>
-        <span className="t-meta leading-tight">
-          {[repo.language, `${relativeTime(repo.pushedAt, now)} ago`]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
-      </div>
-    </li>
+    <RowShell href={href}>
+      <span className="flex flex-wrap items-baseline gap-2">
+        {title}
+        {/*
+          Marks a row with nothing to open, which is not the same as a private
+          repo — DevEval's repo is private but its site isn't, so that row is a
+          link and carries no tag.
+        */}
+        {!href && (
+          <span className="solid solid-thin solid-edged border border-line px-1.5 py-px text-[10px] uppercase tracking-wider text-muted">
+            Private
+          </span>
+        )}
+      </span>
+      <span className="t-meta leading-tight">
+        {[repo.language, `${relativeTime(repo.pushedAt, now)} ago`]
+          .filter(Boolean)
+          .join(" · ")}
+      </span>
+    </RowShell>
   );
 }
 
 function PublicRepoRow({ repo, now }: { repo: RepoCard; now: number }) {
   return (
-    /* The hairline is on the `li` and the box is the `div`, which stands 8px
-       wider than it on each side — see the row inset in globals.css. */
-    <li className="border-t border-line/40 first:border-t-0">
-      <div className="solid-hover flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2">
-        <a
-          href={repo.url}
-          target="_blank"
-          rel="noreferrer"
-          className="steam-link text-[15px] leading-tight"
-        >
-          {repo.name}
-        </a>
-        <span className="t-meta leading-tight">
-          {[repo.language, `${relativeTime(repo.pushedAt, now)} ago`]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
-      </div>
-    </li>
+    <RowShell href={repo.url}>
+      <span className={rowTitle}>{repo.name}</span>
+      <span className="t-meta leading-tight">
+        {[repo.language, `${relativeTime(repo.pushedAt, now)} ago`]
+          .filter(Boolean)
+          .join(" · ")}
+      </span>
+    </RowShell>
   );
 }
 
