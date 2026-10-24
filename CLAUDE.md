@@ -554,6 +554,14 @@ class would stop emitting.
   trace to anything visible. Links is a row
   of icons; an entry with no `href` renders greyed and unlinked rather
   than pointing somewhere invented.
+  **The marks are the solids in that row, not the "Links" heading above
+  them.** The heading is a `.stat-row`, which lifts, and for a while it was
+  the only thing in the panel that reacted — so the label popped out and
+  the things you can actually click stayed flat. A linked mark carries
+  `solid-hover solid-tinted` now (`solid-tinted` because
+  `transition-colors` on a solid would replace its transform transition);
+  an unlinked one deliberately doesn't, since a box that rises under the
+  pointer claims there's something to click.
 - `src/components/AutoRefresh.tsx` — tiny client component that calls
   `router.refresh()` on the revalidate interval so the feed actually
   ticks over for someone leaving the tab open (ISR only revalidates on a

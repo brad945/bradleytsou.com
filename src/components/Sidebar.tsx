@@ -387,6 +387,15 @@ export default function Sidebar({
 
           Each icon keeps its label as the accessible name and as the tooltip,
           so nothing is lost to someone who can't identify a mark on sight.
+
+          **The marks are the solids here, not the "Links" row above them.**
+          That row is a `.stat-row` because it shares the sidebar's
+          label layout, and it was the only thing in the panel that rose when
+          you pointed at it — so the heading popped out and the things you can
+          actually click stayed flat, which is backwards. Bradley caught it.
+          A linked mark is `.solid-hover` now, so pointing at one raises that
+          mark; an unlinked one deliberately isn't, because there's nothing to
+          click and a box that rises under the pointer says there is.
         */}
         <ul className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-3">
           {socials.map((link) => {
@@ -423,7 +432,13 @@ export default function Sidebar({
                     link.href.startsWith("mailto:") ? undefined : "_blank"
                   }
                   rel="noreferrer"
-                  className="block text-muted transition-colors hover:text-link"
+                  /*
+                    `solid-tinted` rather than `transition-colors`, which on a
+                    solid would replace `transition-property: transform`
+                    outright — the trap written up in globals.css. It restates
+                    the colour transition this had and keeps the transform's.
+                  */
+                  className="solid-hover solid-tinted block text-muted hover:text-link"
                 >
                   <Icon className="h-5 w-5" />
                   <span className="sr-only">{link.label}</span>
