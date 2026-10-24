@@ -969,6 +969,14 @@ and `button`**, and it has to be: `:active` applies to the whole chain
 from the activated element upward, so without the element check clicking
 a row would press its panel too.
 
+The lift fires on `:is(:hover, :active)` rather than `:hover` alone so
+that a keyboard activation presses too, and **that half only works on a
+`<button>`**: measured, Space on the Message button sets `:active` and
+presses it, while Enter on a focused row link does not — Chrome doesn't
+put a link into `:active` for Enter-activation, so there is nothing for
+the rule to match. The commit that added the press claimed otherwise
+about links. It's wrong, and this is the correction.
+
 **A row that links somewhere is the link**, at Bradley's request — "I
 don't have to click on DevEval, the text. Make the entire thing
 clickable." So the box that lifts under the pointer and the thing you can
