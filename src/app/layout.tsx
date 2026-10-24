@@ -3,6 +3,7 @@ import { Gabarito, JetBrains_Mono, Open_Sans } from "next/font/google";
 import "./globals.css";
 import AnimatedFavicon from "@/components/AnimatedFavicon";
 import MarkReveal from "@/components/MarkReveal";
+import { PlayModeProvider } from "@/components/PlayMode";
 import { profile, siteOrigin, tabName } from "@/lib/profile-data";
 
 /**
@@ -118,7 +119,17 @@ export default function RootLayout({
           fetched for a visitor who doesn't do it.
         */}
         <MarkReveal />
-        <div className="relative">{children}</div>
+        {/*
+          Holds whether play mode is unlocked, for this page view only — the
+          Tech Stack easter egg sets it and `/play` reads it. It lives up here
+          because the App Router doesn't remount a shared layout when the page
+          segment changes, which is the whole of how an unlock on `/` survives
+          a `next/link` to `/play` and nothing survives a reload. See
+          `PlayMode.tsx`; the children stay server components.
+        */}
+        <PlayModeProvider>
+          <div className="relative">{children}</div>
+        </PlayModeProvider>
         {/* Swaps the static /icon for a stepped hop after hydration. Renders
             nothing; with JS off the static mark stays. */}
         <AnimatedFavicon />

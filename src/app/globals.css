@@ -487,6 +487,30 @@
     --bw: 1px;
   }
 
+  /*
+   * A solid whose colours change as well as its height.
+   *
+   * **`transition-colors` cannot be used on a solid** — the trap in the hover
+   * block above. Utilities land in a later cascade layer and replace
+   * `transition-property: transform` outright, so the face snaps to its
+   * lifted position while the walls still grow behind it over 260ms, which is
+   * the base coming off the page. This restates the property list instead.
+   *
+   * The durations are deliberately not all `--solid-ms`. The lift's easing
+   * overshoots — that overshoot is the bounce — and a colour interpolated
+   * past its endpoint and clamped back is a flicker rather than a bounce. So
+   * the colours get their own 180ms ease-out and only the transform keeps the
+   * spring.
+   *
+   * One user today: the Tech Stack chips, which light up as the easter egg
+   * collects them.
+   */
+  .solid-tinted {
+    transition-property: transform, color, background-color, border-color;
+    transition-duration: var(--solid-ms), 180ms, 180ms, 180ms;
+    transition-timing-function: var(--solid-ease), ease-out, ease-out, ease-out;
+  }
+
   /* Underside only, for anything flush with its parent's right edge. */
   .solid-foot::before {
     content: none;

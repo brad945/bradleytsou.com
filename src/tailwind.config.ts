@@ -795,6 +795,46 @@ const config: Config = {
          * one thing this must not do — they are supposed to be behind the
          * profile block now.
          */
+        /*
+         * One piece of confetti, thrown out of the Tech Stack panel when the
+         * easter egg completes.
+         *
+         * Same technique as the reaction emoji above, and for the same
+         * reason: distances, angles and duration are custom properties set
+         * inline per element, so sixty pieces share one keyframe and no two
+         * follow the same path. A single arc for all of them reads as a UI
+         * effect rather than as something bursting.
+         *
+         * **Two easings, not one, and that's the gravity.** The first
+         * segment decelerates — thrown hard and coasting to the top of its
+         * arc — and the second accelerates into the fall. One ease over the
+         * whole thing gives a piece of paper drifting on a fixed curve,
+         * which is the thing that makes cheap confetti look cheap.
+         *
+         * `--peak` is where the arc tops out, negative and above the origin;
+         * `--dy` is where it lands, positive and well below. The fade is at
+         * the very end, so pieces vanish on the way down rather than
+         * dissolving mid-flight.
+         */
+        confetti: {
+          "0%": {
+            transform: "translate3d(0, 0, 0) rotate(0deg)",
+            opacity: "1",
+            animationTimingFunction: "cubic-bezier(0.1, 0.72, 0.4, 1)",
+          },
+          "55%": {
+            transform:
+              "translate3d(calc(var(--dx) * 0.7), var(--peak), 0) rotate(calc(var(--spin) * 0.55))",
+            opacity: "1",
+            animationTimingFunction: "cubic-bezier(0.5, 0, 0.85, 0.6)",
+          },
+          "85%": { opacity: "1" },
+          "100%": {
+            transform:
+              "translate3d(var(--dx), var(--dy), 0) rotate(var(--spin))",
+            opacity: "0",
+          },
+        },
         "glyph-fall": {
           "0%": {
             transform: "translateY(0)",
@@ -885,6 +925,11 @@ const config: Config = {
         "emoji-arc-l": "emoji-arc-l var(--dur) ease-out forwards",
         "emoji-arc-r": "emoji-arc-r var(--dur) ease-out forwards",
         "emoji-pop": "emoji-pop 260ms ease-out",
+        // No timing function in the shorthand — the keyframe sets its own per
+        // segment, which is where the arc comes from. `forwards` holds the
+        // last stop for the frame between the animation ending and React
+        // dropping the node.
+        confetti: "confetti var(--dur) forwards",
       },
     },
   },

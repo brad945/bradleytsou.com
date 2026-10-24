@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import NavMark from "@/components/NavMark";
 import type { GitHubStats } from "@/lib/github";
 import { accountBalance, profile } from "@/lib/profile-data";
@@ -31,7 +32,11 @@ import HoverNote from "@/components/HoverNote";
  *
  * Giving an entry an href is the whole change when its section lands.
  */
-const NAV_ITEMS: { label: string; href?: string }[] = [
+/** Shared by both spellings of a nav link, so the two can't drift apart. */
+const NAV_LINK =
+  "text-[12px] uppercase tracking-[0.08em] text-copy/70 transition-colors hover:text-bright";
+
+const NAV_ITEMS: { label: string; href?: string; soft?: boolean }[] = [
   /*
    * `/#top`, not `/#profile`, for the same reason the mark uses it: the nav
    * isn't sticky, so `#profile` sits ~120px into the document and
@@ -58,7 +63,20 @@ const NAV_ITEMS: { label: string; href?: string }[] = [
    * top of the viewport. Unlike Profile, this one *should* scroll.
    */
   { label: "Chat", href: "/#comments-heading" },
-  { label: "Play", href: "/play" },
+  /*
+   * **`soft`, which means `next/link` rather than an anchor**, and it's the
+   * one item that needs it. `/play` is locked until the Tech Stack easter egg
+   * is finished, and the bit saying so is React state in the root layout — a
+   * plain `<a>` reloads the document, tears that down and lands on the locked
+   * page even for someone who has just unlocked it. A client navigation keeps
+   * the layout mounted, so it doesn't. See `PlayMode.tsx`.
+   *
+   * The others stay anchors deliberately: three of them are in-page
+   * fragments, and the way those interact with `scroll-behavior: smooth` and
+   * `scroll-padding-top` is worked out above and not worth re-deriving for a
+   * routing change none of them need.
+   */
+  { label: "Play", href: "/play", soft: true },
   /*
    * Also no href. There's no resume file in `public/` and no hosted copy to
    * point at — a nav item linking to a 404 is worse than one that's visibly
@@ -130,12 +148,15 @@ export default function SiteNav({ stats }: { stats: GitHubStats | null }) {
           {NAV_ITEMS.map((item) => (
             <li key={item.label}>
               {item.href ? (
-                <a
-                  href={item.href}
-                  className="text-[12px] uppercase tracking-[0.08em] text-copy/70 transition-colors hover:text-bright"
-                >
-                  {item.label}
-                </a>
+                item.soft ? (
+                  <Link href={item.href} className={NAV_LINK}>
+                    {item.label}
+                  </Link>
+                ) : (
+                  <a href={item.href} className={NAV_LINK}>
+                    {item.label}
+                  </a>
+                )
               ) : (
                 /* Not an anchor — see NAV_ITEMS. */
                 <span

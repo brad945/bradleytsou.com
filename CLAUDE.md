@@ -536,6 +536,9 @@ class would stop emitting.
   **Gone from here:** followers, badge tiles, the focus list, the
   stars-ranked Top Repositories list, the language bars (see "No
   decorative meters") and the LinkedIn follower count.
+  **The Tech Stack chips are a client component now** (`TechStack.tsx`) and
+  hold the easter egg that unlocks `/play` — see its own section below. The
+  markup they render is unchanged.
   Tech Stack is derived from the `tags` on roles and projects minus
   `NON_STACK_TAGS`, plus `EVIDENCED_STACK` — so nothing can appear there
   that isn't attached to real work elsewhere on the page. **Ordered by
@@ -632,7 +635,8 @@ class would stop emitting.
   was tried and couldn't hold: covering pixels doesn't disable a document.
 - `src/components/SocialIcons.tsx` — the Links row marks, drawn as paths
   rather than pulled from an icon package.
-- `src/app/play/page.tsx` — `/play`, deliberately near-empty. It exists so
+- `src/app/play/page.tsx` — `/play`, deliberately near-empty, and **locked
+  behind the Tech Stack easter egg** (see below). It exists so
   the nav's Play item can be a real link. It fetches the snapshot for one
   reason: `SiteNav` hides its whole right-hand block when `stats` is null,
   so without it the nav there would be visibly shorter.
@@ -820,8 +824,8 @@ doesn't help — it reparents each element to the renderer's container, so
 *behind* the DOM drawing only the walls, with the camera matched to the
 layout; it is real work for a seam that CSS doesn't have, and at these
 depths (3-10px) perspective convergence across a wall is sub-pixel, so it
-would look identical. `/` ships 106 kB of JS; `/play`, with three in it,
-ships 367 kB.
+would look identical. `/` ships 116 kB of JS; `/play`, with three in it,
+ships 375 kB.
 
 **The depth axis runs 45° to the bottom-right**, so a box shows its right
 wall and its underside. Not arbitrary: this site lights everything from
@@ -973,6 +977,68 @@ an expected wall quad, which you can compute from each solid's
 `getBoundingClientRect()` and its `--depth`. That run is what this was
 landed on: 81 solids on `/`, 14 on `/about`, zero changed pixels outside a
 wall.
+
+## The Tech Stack easter egg, and the lock on /play
+
+Point at a Tech Stack chip and it stays lit in accent gold. Light all 36 and
+play mode unlocks: a confetti burst, a synthesised pop, and a button through
+to `/play`, which says "Locked — complete the hidden easter egg first" until
+then. Bradley asked for all of it, including that it reset on refresh.
+
+**The state is React state in the root layout and nothing else**, which is
+the whole design. He asked for "client sided so refresh restarts it, no need
+to save it per user" — `localStorage` would make it permanent and
+`sessionStorage` survives a reload, so neither can express that. A provider
+in the layout can: the App Router doesn't remount a shared layout when only
+the page segment changes, so an unlock on `/` survives a `next/link` to
+`/play`, and a reload or a typed URL tears the tree down and starts over
+locked. The behaviour falls out of where the state lives rather than out of
+code implementing it. `PlayMode.tsx`.
+
+**Every link into `/play` therefore has to be a `next/link`.** A plain `<a>`
+reloads the document and lands on the locked page even for someone who has
+just unlocked it. That's the `soft` flag on the nav's Play item, and the rest
+of the nav stays anchors on purpose — three of them are in-page fragments
+whose interaction with `scroll-padding-top` is worked out and not worth
+re-deriving.
+
+**It costs 8 kB on `/about` and `/play`, and buys nothing there.** `next/link`
+is a static import in `SiteNav`, so every page that renders the nav pays for
+it, while the only click it can change is one made from `/` — the only page
+the unlock can exist on, and the one page where the chunk was already paid
+for by the egg. Measured: `/about` 97.8 kB without it, 106 kB with; `/`
+unchanged at 116 either way. Page-localising it would mean the nav no longer
+owning its own markup, so it's a knowing trade rather than an oversight. Drop
+the `soft` flag and the import to take the 8 kB back, at the cost of the nav
+landing a just-unlocked visitor on the lock.
+
+Four details worth keeping:
+
+- **`onPointerEnter`, not `onMouseEnter`.** A tap fires `pointerenter` on
+  touch, so the egg is finishable on a phone — verified: one tap, one lit
+  chip. With mouse events it would be a desktop-only door in front of a page
+  nobody on a touch screen could ever reach.
+- **The chips are solids, so the highlight needs `.solid-tinted`** —
+  `transition-colors` on a solid replaces `transition-property: transform`
+  outright. The colours also get their own 180ms ease rather than the lift's
+  overshoot, because a colour interpolated past its endpoint and clamped is
+  a flicker.
+- **The confetti overlay is portalled to `document.body`.** The burst fires
+  while the pointer is still on the Tech Stack panel, so that panel is
+  lifted and carrying a transform — which makes it the containing block for
+  `position: fixed` descendants and a stacking context besides. Rendered in
+  place, a full-screen burst would be a burst inside a sidebar card.
+- **The noise is synthesised, not a file**, and it may not be audible. A
+  pointer moving over chips is not a *user activation*, so a visitor who has
+  clicked nothing gets an `AudioContext` stuck in `suspended` and hears
+  nothing. Verified both ways: suspended under the default policy, `running`
+  with `--autoplay-policy=no-user-gesture-required`, and nothing thrown
+  either way. The confetti and the unlock don't depend on it.
+
+The count comes from `techStack.length`, so adding a tag to a role anywhere
+in `profile-data` makes the egg one chip longer by itself. It isn't
+keyboard-reachable: the chips are `<li>`s and making 36 of them tab stops
+would wreck the page's keyboard order to hide a joke behind it.
 
 **The rarity tokens are gone**, along with `nebula`, `plum` and `wine`.
 The first three fed only the deleted Item Showcase; `plum` and `wine` were
@@ -1148,6 +1214,11 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   **A sixth: the press**, asked for in the message after it — a clickable
   solid sinks under a click. It's the lift run backwards and it fires on
   the click itself, so it's about as far inside the line as motion gets.
+  **An eighth: the Tech Stack easter egg** — chips lighting as you point at
+  them, and a confetti burst with a synthesised pop when the last one
+  lands. Asked for by name. The chips react only to being pointed at, and
+  the burst only to the egg completing; no confetti under
+  `prefers-reduced-motion`, the same call `Reactions` makes.
   **A seventh, and the only one that breaks the shape of the rule: the
   avatar frame leaning toward the cursor**, asked for by name in the same
   message. Everything else here waits to be pointed at or clicked; this

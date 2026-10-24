@@ -8,6 +8,7 @@ import {
   techStack,
 } from "@/lib/profile-data";
 import { SOCIAL_ICONS, type SocialIconName } from "@/components/SocialIcons";
+import TechStack from "@/components/TechStack";
 
 interface SidebarProps {
   snapshot: GitHubSnapshot;
@@ -329,20 +330,11 @@ export default function Sidebar({
           </div>
 
           {/*
-            Chips rather than the mono dot-list the same tags use in
-            Experience. There they're a footnote under a role and shouldn't
-            compete with it; here they're the content of the panel.
+            The chips moved into a client component, and the easter egg came
+            with them — point at every one and play mode unlocks. The markup
+            they render is unchanged; see `TechStack.tsx`.
           */}
-          <ul className="mt-3 flex flex-wrap gap-1.5">
-            {techStack.map((tech) => (
-              <li
-                key={tech}
-                className="solid solid-thin solid-edged border border-line/70 bg-panel2/60 px-2 py-1 text-[12px] leading-none text-copy"
-              >
-                {tech}
-              </li>
-            ))}
-          </ul>
+          <TechStack items={techStack} />
         </section>
       )}
 

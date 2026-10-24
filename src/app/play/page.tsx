@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 
+import PlayGate from "@/components/PlayGate";
 import SiteNav from "@/components/SiteNav";
 import { getGitHubSnapshot } from "@/lib/github";
 import { githubUsername, profile, tabName } from "@/lib/profile-data";
@@ -71,39 +72,48 @@ export default async function Play() {
             This gives it room without pinning it to a number that would need
             revisiting the moment anything lands here.
           */}
-          <div className="flex min-h-[320px] flex-col items-center justify-center px-6 py-10">
-            {/*
-              A prototype, and the reason this page has anything on it at
-              all. Drag to rotate it.
+          {/*
+            Locked until the Tech Stack easter egg on `/` is finished, at
+            Bradley's request. `PlayGate` renders a line saying so until then,
+            and because `Model3D` is a child of it rather than beside it, a
+            locked visitor never mounts the canvas and so never downloads
+            three.js either. See `PlayMode.tsx` for why a reload re-locks it.
+          */}
+          <PlayGate>
+            <div className="flex min-h-[320px] flex-col items-center justify-center px-6 py-10">
+              {/*
+                A prototype, and the reason this page has anything on it at
+                all. Drag to rotate it.
 
-              No `src`, so it spins the extruded `bt.` mark and downloads no
-              model. Pass `src="/models/thing.glb"` to swap in a real one —
-              everything else about the scene is already what the reference
-              site runs.
+                No `src`, so it spins the extruded `bt.` mark and downloads no
+                model. Pass `src="/models/thing.glb"` to swap in a real one —
+                everything else about the scene is already what the reference
+                site runs.
 
-              Sized in `vh` with a cap so it scales with the viewport rather
-              than being pinned to a number, and a fixed aspect so the canvas
-              never collapses while its chunk is still loading.
-            */}
-            {/*
-              This carried `solid-stop` so the panel behind it stayed flat
-              while the model was being dragged. Lifts nest now (note 2 in
-              globals.css), so the panel rises once as the pointer arrives and
-              holds for the whole drag — which is what the class was there to
-              get, by the opposite route.
-            */}
-            <Model3D className="h-[46vh] max-h-[420px] w-full" />
+                Sized in `vh` with a cap so it scales with the viewport rather
+                than being pinned to a number, and a fixed aspect so the canvas
+                never collapses while its chunk is still loading.
+              */}
+              {/*
+                This carried `solid-stop` so the panel behind it stayed flat
+                while the model was being dragged. Lifts nest now (note 2 in
+                globals.css), so the panel rises once as the pointer arrives and
+                holds for the whole drag — which is what the class was there to
+                get, by the opposite route.
+              */}
+              <Model3D className="h-[46vh] max-h-[420px] w-full" />
 
-            {/*
-              `font-sign`, the same face and treatment `BoardedUp` uses for the
-              privacy cover. The site already has a way of saying "coming
-              soon"; saying it a second way in body copy would read as a
-              different site's placeholder.
-            */}
-            <p className="font-sign mt-2 text-[32px] leading-none tracking-[-0.01em] text-bright sm:text-[40px]">
-              Coming soon
-            </p>
-          </div>
+              {/*
+                `font-sign`, the same face and treatment `BoardedUp` uses for the
+                privacy cover. The site already has a way of saying "coming
+                soon"; saying it a second way in body copy would read as a
+                different site's placeholder.
+              */}
+              <p className="font-sign mt-2 text-[32px] leading-none tracking-[-0.01em] text-bright sm:text-[40px]">
+                Coming soon
+              </p>
+            </div>
+          </PlayGate>
         </section>
 
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted/70">
