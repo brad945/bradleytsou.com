@@ -768,6 +768,36 @@ headings are weight 200, so every `font-extralight` here became
 `font-light`; the CSS states the weight that actually renders instead of
 asking for one that silently clamps. Don't "restore" 200.
 
+**`experimental.webpackBuildWorker: false` in `next.config.mjs` is a font
+fix, and the whole site's type depends on it.** `next/font/google` names
+its classes and families by hashing the CSS it fetched from Google —
+`sha1(css)`, first six hex — and *both* the server and the client compiler
+run that loader. If their two hashes disagree, the `__variable_*` class the
+server writes onto `<html>` names a rule the stylesheet never defines, so
+`--font-sans` resolves to nothing and every element on the page falls back
+to `system-ui`. That is what was live on bradleytsou.com: HTML asking for
+`__variable_2fad4c` against a stylesheet defining `__variable_4dc837`, with
+"Bradley Tsou" measuring 158px instead of 172.
+
+next/font guards against it with a one-shot in-process cache, and its own
+comment says why: *"Hacky way to make sure the fetch is only done once.
+Otherwise both the client and server compiler would fetch the CSS… because
+a hash is generated based on the CSS content."* `webpackBuildWorker` runs
+the two compilers in **separate processes**, so that cache is never hit.
+Measured, with a `console.log` in `fetch-css-from-google-fonts.js`: six
+fetches across two pids with the worker on, three in one pid with it off.
+Six independent fetches agree only as long as Google returns byte-identical
+responses to both — and on Vercel's build machines they didn't.
+
+It defaults **on** for any project without a custom `webpack` key, so this
+had been the behaviour all along and the live font was working by luck. The
+tell that it is this and not a stale build cache: the emitted woff2 files
+are identical in the HTML's preloads and in the CSS (same bytes, same
+content hash) while only the 6-char name hash differs. Checking the live
+page is one line — the `__variable_*` names in the HTML must match the ones
+inside the CSS file it links — and it's worth running after any next/font
+or Next version change.
+
 The scale lives as `.t-*` classes in `src/app/globals.css` and is taken
 **from Steam's own `profilev2.css`**, not estimated off screenshots:
 persona name 24/200/lh40, panel header 16/200/lh30, stat 24/200, big stat
