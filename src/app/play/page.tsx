@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 
+import CanvasBoundary from "@/components/CanvasBoundary";
 import PlayGate from "@/components/PlayGate";
 import SiteNav from "@/components/SiteNav";
 import { getGitHubSnapshot } from "@/lib/github";
@@ -101,7 +102,14 @@ export default async function Play() {
                 holds for the whole drag — which is what the class was there to
                 get, by the opposite route.
               */}
-              <Model3D className="h-[46vh] max-h-[420px] w-full" />
+              {/*
+                The boundary is not decoration: `/play` is only reachable by a
+                client navigation now, so a WebGL failure here propagates past
+                the route and blanks the whole tab. See `CanvasBoundary.tsx`.
+              */}
+              <CanvasBoundary>
+                <Model3D className="h-[46vh] max-h-[420px] w-full" />
+              </CanvasBoundary>
 
               {/*
                 `font-sign`, the same face and treatment `BoardedUp` uses for the
