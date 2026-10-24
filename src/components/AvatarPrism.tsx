@@ -74,14 +74,29 @@ const RISE = 0.25;
 /**
  * How far the photo shifts toward the pointer, as a fraction of `--depth`.
  *
- * With `RISE` this sets both of the bounds that matter. The walls reach
- * `(1 + RISE + TRAVEL) x depth` = 1.75x, or 17.5px on this frame, against
- * 20px of gap to the bio text beside it — with opaque steel walls, so that
- * ceiling is a measurement rather than a preference. And the photo travels up
- * to 7.5px toward the top-left, which is how much of Exy's tail it can cover.
- * Raise either number and check both.
+ * Raised from 0.5 at Bradley's request — "make the cursor following
+ * multiplier a bit more for the pfp".
+ *
+ * Two things bound it, and only one of them is what you'd expect:
+ *
+ * - **Neither number can reach the bio text beside the frame**, and that
+ *   isn't a coincidence to be re-checked — it's the pinned base. The right
+ *   wall runs from the face's right edge to the base's right edge, and the
+ *   face moves by exactly `(1 - u) · depth`, so the wall's outer edge lands
+ *   on `frame_right + depth` for *every* value of `u`. Measured by sweeping
+ *   the pointer right round the frame: the furthest it ever reaches is
+ *   x=400.0, every time, against text at x=410. An earlier version of this
+ *   comment claimed the sum of these two was capped at 1.9 by that 20px gap.
+ *   It isn't; the gap is a constant 10px and the ceiling was imaginary.
+ * - **The photo travels `(RISE + TRAVEL) x depth` toward the top-left**, 9.5px
+ *   here, and that is how much of Exy's tail it covers on the way past. This
+ *   is the real cost, and the one to re-measure: the clickable strip goes
+ *   31px -> 24px.
+ *
+ * The hard floor is `1 + RISE - TRAVEL > 0`, since a negative scale folds a
+ * wall back over its own face. At 0.95 the shallow wall is still 5.5px.
  */
-const TRAVEL = 0.5;
+const TRAVEL = 0.7;
 
 /** 0 at the edge of reach, 1 against the frame, eased at both ends. */
 function smoothstep(t: number) {

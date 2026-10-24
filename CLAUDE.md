@@ -980,12 +980,21 @@ interpolation at all — the prism is redrawn against the pointer each frame
 and lags nothing. Letting go restores the 260ms overshoot, so it still
 settles with the same bounce as every other box.
 
-Two bounds, both measurements. The walls reach 1.75x the resting depth,
-17.5px, against 20px of gap to the bio text — with opaque steel walls that
-would otherwise paint over the words. And the photo travels up to ~6px
-toward the top-left, which covers that much of Exy's tail: the clickable
-strip goes from 31px to 25px. That cost is back, and it is the price of the
-photo being the part that moves.
+**The walls cannot reach the bio text beside the frame, and that's the
+pinned base rather than a coincidence to re-check.** The right wall runs
+from the face's right edge to the base's right edge, and the face moves by
+exactly `(1 - u) · depth` — so the wall's outer edge lands on
+`frame_right + depth` for every value of `u`. Measured by sweeping the
+pointer right round the frame: furthest reach x=400.0, every time, against
+text at x=410. An earlier version of this note had the two travel knobs
+capped by that 20px gap. They aren't; the gap is a constant 10px and the
+ceiling was imaginary.
+
+So there is exactly one real cost, and it's Exy's tail. The photo travels
+`(RISE + TRAVEL) · depth` toward the top-left — 9.5px — and covers that much
+of the strip: 31px of clickable tail down to 24px. The floor on the knobs is
+`1 + RISE - TRAVEL > 0`, since a negative scale folds a wall back over its
+own face; at the current 0.25 / 0.7 the shallow wall is still 5.5px.
 
 The component adds `solid-track` itself, which is the whole fallback — no
 JS, a touch screen or `prefers-reduced-motion` and the class never lands,
@@ -1039,7 +1048,7 @@ wall.
 
 ## The Tech Stack easter egg, and the lock on /play
 
-Point at a Tech Stack chip and it stays lit in accent gold. Light all 36 and
+Point at a Tech Stack chip and it stays lit in `link` blue. Light all 36 and
 play mode unlocks: a confetti burst, a synthesised pop, and a button through
 to `/play`, which says "Locked — complete the hidden easter egg first" until
 then. Bradley asked for all of it, including that it reset on refresh.
@@ -1094,20 +1103,25 @@ Four details worth keeping:
   with `--autoplay-policy=no-user-gesture-required`, and nothing thrown
   either way. The confetti and the unlock don't depend on it.
 
-**All 36 have to be lit within three seconds**, at Bradley's request, or
-every chip goes dark and the next one you point at starts a fresh run. The
-clock starts on the first chip rather than on load, so it isn't already
-running before anyone has noticed the egg exists. Measured: a sweep at
-20ms a chip finishes in 1.2s and unlocks; one at 110ms takes 4.2s and
-resets partway through, leaving ten lit and then none.
+**All 36 have to be lit within 2.5 seconds**, at Bradley's request, or the
+run ends. The clock starts on the first chip rather than on load, so it
+isn't already running before anyone has noticed the egg exists.
+
+**Running out doesn't drop them all at once.** They go out one at a time,
+each at the same offset into the unwind that it was lit at into the run —
+"fade back to normal in the same time pattern it was hovered over", so the
+lights go off in the order they came on and the unwind takes as long as the
+sweep did. Measured: 20 chips swept in 1669ms unwound in 1582ms, one at a
+time. `litAt` is the ref of timestamps that makes it possible, and pointing
+at a chip mid-unwind cancels the rest and starts a clean run.
 
 There's no countdown drawn anywhere, deliberately. The chips going out
 *is* the feedback — the one thing a timer would tell you is that you ran
-out, and thirty-six lights dropping at once says it — and a progress bar
-would be the decorative meter this site took two of out. The timeout lives
-in a ref and the effect that arms it returns early when one is already
-ticking: the effect has to re-run as chips land, so re-arming each time
-would give three seconds *per chip* instead of three for the run.
+out — and a progress bar would be the decorative meter this site took two
+of out. The window's timeout lives in a ref and the effect that arms it
+returns early when one is already ticking: the effect has to re-run as
+chips land, so re-arming each time would give the full window *per chip*
+instead of one window for the run.
 
 The count comes from `techStack.length`, so adding a tag to a role anywhere
 in `profile-data` makes the egg one chip longer by itself. It isn't
@@ -1297,7 +1311,7 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   that, so don't "fix" it — and equally, don't read it as licence for
   anything else that reacts to a pointer it isn't under.
   **An eighth: the Tech Stack easter egg** — chips lighting as you point at
-  them, and a confetti burst with a synthesised pop when the last one
+  them and going out again in the same rhythm if you run out of time, and a confetti burst with a synthesised pop when the last one
   lands. Asked for by name. The chips react only to being pointed at, and
   the burst only to the egg completing; no confetti under
   `prefers-reduced-motion`, the same call `Reactions` makes.
