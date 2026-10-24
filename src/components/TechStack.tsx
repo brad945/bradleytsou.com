@@ -34,22 +34,31 @@ import { playPop } from "@/lib/celebrate";
  * `techStack` is derived from the tags on roles and projects — so adding a
  * tag anywhere on the site makes the egg one chip longer, by itself.
  *
- * ## The three-second window
+ * ## The window, and the unwind
  *
- * All 36 have to be lit inside `WINDOW_MS`, at Bradley's request, or every
- * chip goes dark and the next one you point at starts a fresh run. The clock
- * starts on the first chip, not on load, so it can't be running before anyone
- * has noticed the egg exists.
+ * All 36 have to be lit inside `WINDOW_MS`, at Bradley's request, or the run
+ * ends. The clock starts on the first chip, not on load, so it can't be
+ * running before anyone has noticed the egg exists.
+ *
+ * **Running out doesn't drop them all at once.** They go out one at a time,
+ * each at the same offset into the unwind that it was lit at into the run —
+ * "fade back to normal in the same time pattern it was hovered over", which
+ * means the lights go off in the order they came on and the unwind takes
+ * exactly as long as the sweep did. `litAt` holds the timestamps that makes
+ * that possible, and it's a ref rather than state because nothing renders
+ * from it directly.
+ *
+ * Pointing at a chip mid-unwind cancels the rest of it and starts a clean
+ * run, rather than letting a new sweep race the old one's timers out.
  *
  * There's no countdown drawn anywhere. The chips going out *is* the feedback
- * — the one thing you'd want a timer to tell you is that you ran out, and
- * thirty-six lights dropping at once says it. A progress bar would also be
- * the decorative meter this site took two of out.
+ * — the one thing you'd want a timer to tell you is that you ran out — and a
+ * progress bar would be the decorative meter this site took two of out.
  *
- * The timeout lives in a ref rather than in state, and the effect that starts
- * it returns early when one is already ticking. That matters: the effect has
- * to re-run as chips land, so re-arming on every render would hand you three
- * seconds *per chip* instead of three seconds for the run.
+ * The window's own timeout lives in a ref too, and the effect that arms it
+ * returns early when one is already ticking. That matters: the effect has to
+ * re-run as chips land, so re-arming on every render would hand you the full
+ * window *per chip* instead of one window for the run.
  *
  * It isn't keyboard-reachable, and that's the honest cost of "hover over the
  * tech stack elements": the chips are `<li>`s and making 36 of them tab stops
@@ -67,31 +76,61 @@ const CHIP =
   "solid solid-thin solid-edged solid-tinted border px-2 py-1 text-[12px] leading-none";
 const CHIP_REST = "border-line/70 bg-panel2/60 text-copy";
 /*
- * Accent gold for a found chip. It's the site's one "you earned this" colour
- * — the award chip in Experience is the same — where `link` blue means "under
- * your pointer" and `live` green means "this number is being fetched". Both
- * of those would have said something untrue about a lit chip.
+ * Link blue for a found chip, at Bradley's request — it was accent gold and
+ * he asked for "a slightly lighter blue instead of the orange". `link`
+ * (#66c0f4) is the palette's light blue and the only one, so this is that
+ * rather than a new token for one state.
+ *
+ * It does overload the site's own meaning of blue, which is "under your
+ * pointer" — but a lit chip *was* under your pointer a moment ago, so the
+ * two readings don't actually fight.
  */
-const CHIP_FOUND = "border-accent/60 bg-accent/10 text-accent";
+const CHIP_FOUND = "border-link/60 bg-link/10 text-link";
 
 /** How long a run lasts. All 36 inside it or the chips go out. */
-const WINDOW_MS = 3000;
+const WINDOW_MS = 2500;
 
 export default function TechStack({ items }: { items: string[] }) {
   const { unlocked, unlock } = usePlayMode();
   const [found, setFound] = useState<ReadonlySet<string>>(() => new Set());
   const [burst, setBurst] = useState<{ x: number; y: number } | null>(null);
   const list = useRef<HTMLUListElement>(null);
+  /** The live window timeout, or 0. */
   const expiry = useRef(0);
+  /** When each chip was lit, which is what the unwind replays. */
+  const litAt = useRef(new Map<string, number>());
+  /** The unwind's own timeouts, one per chip. */
+  const fading = useRef<number[]>([]);
 
-  const collect = useCallback((tech: string) => {
-    setFound((was) => {
-      if (was.has(tech)) return was;
-      const next = new Set(was);
-      next.add(tech);
-      return next;
-    });
+  const stopFade = useCallback(() => {
+    fading.current.forEach(window.clearTimeout);
+    fading.current = [];
   }, []);
+
+  /*
+   * The guard and the timestamp are both up here in the handler rather than
+   * inside the updater, which has to stay pure — React calls an updater twice
+   * in development, and a `performance.now()` in one would record two
+   * different times for the same chip.
+   */
+  const collect = useCallback(
+    (tech: string) => {
+      /* Pointing at a chip part-way through an unwind starts a clean run
+         rather than racing a new sweep against the old one's timers. */
+      if (fading.current.length) {
+        stopFade();
+        litAt.current.clear();
+        litAt.current.set(tech, performance.now());
+        setFound(new Set([tech]));
+        return;
+      }
+
+      if (litAt.current.has(tech)) return;
+      litAt.current.set(tech, performance.now());
+      setFound((was) => new Set(was).add(tech));
+    },
+    [stopFade],
+  );
 
   /*
    * Arm the window on the first chip of a run; disarm it when the run ends,
@@ -111,12 +150,43 @@ export default function TechStack({ items }: { items: string[] }) {
     if (expiry.current) return;
     expiry.current = window.setTimeout(() => {
       expiry.current = 0;
-      setFound(new Set());
+
+      /*
+       * Out in the order they came on, each at the same offset into the
+       * unwind as it had into the run — so the sweep plays backwards at its
+       * own pace. Each chip's own 180ms colour transition does the fading;
+       * this only decides when.
+       */
+      /* `Array.from`, not a spread: the project targets ES5, where spreading
+         a Map iterator needs `--downlevelIteration`. */
+      const lit = Array.from(litAt.current.entries()).sort(
+        (a, b) => a[1] - b[1],
+      );
+      const first = lit.length > 0 ? lit[0][1] : 0;
+      for (const [tech, at] of lit) {
+        fading.current.push(
+          window.setTimeout(() => {
+            litAt.current.delete(tech);
+            setFound((was) => {
+              const next = new Set(was);
+              next.delete(tech);
+              return next;
+            });
+            if (litAt.current.size === 0) fading.current = [];
+          }, at - first),
+        );
+      }
     }, WINDOW_MS);
   }, [found, items.length, unlocked]);
 
   /* Unmounting mid-run must not leave a timeout holding a dead setState. */
-  useEffect(() => () => window.clearTimeout(expiry.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(expiry.current);
+      fading.current.forEach(window.clearTimeout);
+    },
+    [],
+  );
 
   /*
    * The unlock is an effect rather than part of the updater above, because a
@@ -128,6 +198,7 @@ export default function TechStack({ items }: { items: string[] }) {
 
     unlock();
     playPop();
+    stopFade();
 
     /*
      * No confetti under `prefers-reduced-motion`, the same call `Reactions`
@@ -141,7 +212,7 @@ export default function TechStack({ items }: { items: string[] }) {
 
     const box = list.current?.getBoundingClientRect();
     if (box) setBurst({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
-  }, [found.size, items.length, unlocked, unlock]);
+  }, [found.size, items.length, unlocked, unlock, stopFade]);
 
   const clearBurst = useCallback(() => setBurst(null), []);
 
