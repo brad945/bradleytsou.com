@@ -949,16 +949,41 @@ entire pfp element moving around… imagine it's a rectangular prism that is
 transforming. not moving position, the base stays the same, and the
 opposite face is moving around and so the edges are what's moving."
 
-He corrected it twice more, and the final one settles which face is which:
-"the pfp is supposed to be the part that moves and the 'base' face is the
-proverbial part that's attached to the website." So **the back face is
-glued to the page and the photograph is the end that sticks out and
-moves** — the photo shifts toward a pointer within ~110px while the back
-face, down-right of it at `--depth`, stays exactly put. Measured: the
-base's right edge sits at x=400 and its bottom at y=343 at every pointer
-position on the page, while the photo moves within ~6px of its resting
-spot. The walls are the lateral faces joining the two, so what visibly
-changes are the edges.
+He corrected it twice more, and the second of those settles which face is
+which: "the pfp is supposed to be the part that moves and the 'base' face
+is the proverbial part that's attached to the website." So **the back face
+is glued to the page and the photograph is the end that sticks out and
+moves** — the photo shifts toward the pointer while the back face,
+down-right of it at `--depth`, stays exactly put. Measured: the base's
+right edge sits at x=400 and its bottom at y=343 at every pointer position
+on the page. The walls are the lateral faces joining the two, so what
+visibly changes are the edges.
+
+**It waits to be pointed at, which is the fourth correction** — "change
+the pfp following cursor when near to only after it hovers over the pfp,
+then have it do the following animation". It used to start leaning as soon
+as the pointer was within 110px, which made it the only thing on this page
+that reacted to a pointer it wasn't under, and the carve-out below had to
+be written for it specially. Now **a hover arms it and `REACH` is the
+distance at which it lets go**: point at the photo and it follows the
+cursor out to 110px, and past that it settles and needs another hover.
+Drifting back inside the 110px does nothing. `pointerenter` on the frame
+is what arms it — the browser hit-tests every event, where a check inside
+the animation frame sees one pointer position per frame and a fast flick
+across the photo can land either side of it. The frame-geometry check is
+still there as the backstop for the one case the listener misses: the page
+scrolling the frame up under a pointer that never moved.
+
+**Arming has to ease in, and that is not optional.** The lean is at full
+strength the instant the pointer is on the box — crossing the left edge is
+worth ~0.9 of the range by itself — so ungated it lands 8.4px of travel in
+the single frame the pointer crosses the edge, with `--solid-ms` at 0ms
+and therefore nothing to round it off. That is the same single-frame jump
+Bradley called "extremely glitchy" the first time. `ENTER_MS` is a 160ms
+ease, run in JS alongside the rest of the tracking; measured, no frame
+moves the photo more than 1.4px. The ramp also needs its own
+`requestAnimationFrame` loop, because someone who points at the photo and
+holds still gets one `pointermove` and then nothing.
 
 **There are three versions of this in the history and the first two are
 both wrong in instructive ways.** The first translated *and rotated* the
@@ -1001,10 +1026,18 @@ capped by that 20px gap. They aren't; the gap is a constant 10px and the
 ceiling was imaginary.
 
 So there is exactly one real cost, and it's Exy's tail. The photo travels
-`(RISE + TRAVEL) · depth` toward the top-left — 9.5px — and covers that much
-of the strip: 31px of clickable tail down to 24px. The floor on the knobs is
-`1 + RISE - TRAVEL > 0`, since a negative scale folds a wall back over its
-own face; at the current 0.25 / 0.7 the shallow wall is still 5.5px.
+`(RISE + TRAVEL) · depth` toward the top-left — 12.5px at the current
+0.25 / 1 — and covers that much of the strip: 31 columns of clickable tail
+down to 22, measured, from 24 at the previous 0.7. **The gate makes that a
+worst case rather than the standing cost**: the photo doesn't lean until
+it has been pointed at, so reaching straight for the tail from outside the
+frame still finds all 31 columns, and 22 is what's left with the pointer
+already on the photo and dragged that way. **`TRAVEL` is nearly
+spent**: the ceiling is `1 + RISE - TRAVEL > 0`, i.e. 1.25, since a
+negative scale folds a wall back over its own face, and at 1 the shallow
+wall is already down to 2.5px. Bradley set it there by name ("change .7 TO
+1 for the 'following scale' multiplyer"); there isn't another round of this
+to give.
 
 The component adds `solid-track` itself, which is the whole fallback — no
 JS, a touch screen or `prefers-reduced-motion` and the class never lands,
@@ -1312,14 +1345,15 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   **A sixth: the press**, asked for in the message after it — a clickable
   solid sinks under a click. It's the lift run backwards and it fires on
   the click itself, so it's about as far inside the line as motion gets.
-  **A seventh, and the only one that breaks the shape of the rule: the
-  avatar frame's depth axis swinging toward the cursor**, asked for by
-  name. Everything else here waits to be pointed at or clicked; this one
-  starts moving while the pointer is still ~110px away, and the photo is
-  what moves — toward the pointer, off a back face glued to the page.
-  That is the whole point of it and Bradley asked for exactly
-  that, so don't "fix" it — and equally, don't read it as licence for
-  anything else that reacts to a pointer it isn't under.
+  **A seventh: the avatar frame's depth axis swinging toward the cursor**,
+  asked for by name. The photo is what moves — toward the pointer, off a
+  back face glued to the page. **It used to be the one carve-out that
+  broke the shape of the rule**, because it started moving while the
+  pointer was still ~110px away; Bradley closed that himself, and it now
+  waits for a hover like everything else, following the cursor only after
+  you have pointed at it. The only part that still reaches past the
+  pointer is the *release*, which is 110px of lag on the way out rather
+  than anything starting on its own.
   **An eighth: the Tech Stack easter egg** — chips lighting as you point at
   them and going out again in the same rhythm if you run out of time, and a confetti burst with a synthesised pop when the last one
   lands. Asked for by name. The chips react only to being pointed at, and
