@@ -1241,11 +1241,6 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   **A sixth: the press**, asked for in the message after it — a clickable
   solid sinks under a click. It's the lift run backwards and it fires on
   the click itself, so it's about as far inside the line as motion gets.
-  **An eighth: the Tech Stack easter egg** — chips lighting as you point at
-  them, and a confetti burst with a synthesised pop when the last one
-  lands. Asked for by name. The chips react only to being pointed at, and
-  the burst only to the egg completing; no confetti under
-  `prefers-reduced-motion`, the same call `Reactions` makes.
   **A seventh, and the only one that breaks the shape of the rule: the
   avatar frame's depth axis swinging toward the cursor**, asked for by
   name. Everything else here waits to be pointed at or clicked; this one
@@ -1254,6 +1249,11 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   stands on. That is the whole point of it and Bradley asked for exactly
   that, so don't "fix" it — and equally, don't read it as licence for
   anything else that reacts to a pointer it isn't under.
+  **An eighth: the Tech Stack easter egg** — chips lighting as you point at
+  them, and a confetti burst with a synthesised pop when the last one
+  lands. Asked for by name. The chips react only to being pointed at, and
+  the burst only to the egg completing; no confetti under
+  `prefers-reduced-motion`, the same call `Reactions` makes.
 - **Close visual fidelity to Steam's profile layout is intentional** —
   Bradley asked for it directly, superseding the earlier "inspired by the
   structure of, not a literal skin" note. Don't undo it. The carve-out

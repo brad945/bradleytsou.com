@@ -147,8 +147,8 @@ export default function AvatarPrism({
          */
         frame.style.removeProperty("--ux");
         frame.style.removeProperty("--uy");
-        frame.style.removeProperty("transition-duration");
-        frame.style.removeProperty("transition-timing-function");
+        frame.style.removeProperty("--solid-ms");
+        frame.style.removeProperty("--solid-ease");
         return;
       }
 
@@ -176,9 +176,21 @@ export default function AvatarPrism({
          * Quick and flat while it's following. The bounce is for a box that
          * was let go of; a prism tracking the pointer wants to be under it,
          * and an overshoot on every mouse move reads as wobble.
+         *
+         * **The custom properties, not `transition-duration` itself.** All
+         * the motion here is in the walls, and the walls are
+         * pseudo-elements: their transition comes from `var(--solid-ms)` /
+         * `var(--solid-ease)` in the `::before, ::after` rule. Custom
+         * properties inherit and `transition-duration` does not, so setting
+         * the longhand on the element reaches the face — which never
+         * transitions anything — and leaves the walls on the solid system's
+         * 260ms overshoot. Measured before the fix: the element read 0.09s
+         * while `::before` read 0.26s on `cubic-bezier(0.34, 1.7, 0.5, 1)`,
+         * and a wall swinging 0.746 → 1.757 passed through 1.827, which is
+         * 18.3px against the 20px of clearance this has.
          */
-        frame.style.transitionDuration = "90ms";
-        frame.style.transitionTimingFunction = "ease-out";
+        frame.style.setProperty("--solid-ms", "90ms");
+        frame.style.setProperty("--solid-ease", "ease-out");
       }
 
       frame.style.setProperty("--ux", (reach * Math.cos(angle)).toFixed(4));
@@ -204,8 +216,8 @@ export default function AvatarPrism({
       if (queued) cancelAnimationFrame(queued);
       frame.style.removeProperty("--ux");
       frame.style.removeProperty("--uy");
-      frame.style.removeProperty("transition-duration");
-      frame.style.removeProperty("transition-timing-function");
+      frame.style.removeProperty("--solid-ms");
+      frame.style.removeProperty("--solid-ease");
     };
   }, []);
 
