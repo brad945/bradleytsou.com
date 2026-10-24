@@ -281,9 +281,10 @@
    *
    * Nothing moves unless it is pointed at or clicked, so this stays on the
    * same side of the no-decorative-motion rule as the bookshelf and the
-   * mark's hop. **One exception, asked for by name**: the avatar frame
-   * starts leaning before the pointer reaches it — see `.solid-track` below
-   * and `AvatarTilt.tsx`.
+   * mark's hop. **One exception, asked for by name**: the avatar frame's
+   * depth axis starts swinging before the pointer reaches it — see
+   * `.solid-track` below and `AvatarPrism.tsx`. Its face stays put, so what
+   * moves is the block under the photo rather than the photo.
    */
   :is(.solid, .panel, .panel-bar, .steam-button, .stat-row, .solid-hover) {
     position: relative;
@@ -528,31 +529,53 @@
   }
 
   /*
-   * A solid that leans toward the cursor rather than lifting.
+   * A solid whose depth axis swings, instead of a solid that lifts.
    *
-   * The avatar frame is the only one, and it is the only place on this page
-   * with a camera in it — see `AvatarTilt.tsx` for why a rotation is allowed
-   * there and nowhere else. The class is added by that component once it has
-   * decided to track, so without JS, on a touch screen or under
-   * `prefers-reduced-motion` it never lands and the frame keeps the ordinary
-   * lift it is excluded from above.
+   * The avatar frame is the only one. Bradley asked for the frame to follow
+   * the cursor and then corrected what that meant, which is the thing worth
+   * recording: "not the entire pfp element moving around… imagine it's a
+   * rectangular prism that is transforming. not moving position, the base
+   * stays the same, and the opposite face is moving around and so the edges
+   * are what's moving/changing." So **the face does not move at all here.**
+   * The photograph is nailed to the page and only the block it stands on
+   * deforms — the far end of the prism swings around and the two walls
+   * reshape to follow it.
    *
-   * The face's transform is set inline, frame by frame. The walls stay here,
-   * because they are pseudo-elements and have no inline style to set:
-   * `--track-k` runs 0 to 1 with the lean and multiplies the same
-   * `--lift-on` the lift uses, so the sides grow by exactly as much as the
-   * face rises, and the base stays planted as it does everywhere else.
+   * That is also why this version has no camera in it. The first one
+   * translated and rotated the frame under a `perspective()`, which moved the
+   * photo and foreshortened it; this one leaves the element's own transform
+   * alone, so the face projects 1:1 exactly as the rest of the page does, and
+   * the only thing any of it touches is two parallelograms. It stopped being
+   * an exception to the projection argument and became an instance of it.
+   *
+   * `--ux` / `--uy` are the depth vector in units of `--depth`, and the two
+   * matrices below are the general form of the walls the whole system draws:
+   *
+   *   right wall  matrix(ux, uy, 0, 1, 0, 0)   the face's right edge, swept
+   *   underside   matrix(1, 0, ux, uy, 0, 0)   the face's bottom edge, swept
+   *
+   * At `1, 1` those *are* `skewY(45deg)` and `skewX(45deg)` — the same
+   * matrices, written out — so a frame at rest is drawn exactly as it was
+   * before any of this, and the component is free to leave the properties
+   * alone until the pointer is near. Both stay positive by construction (see
+   * `AvatarPrism.tsx`), because a negative one would fold a wall back over
+   * the face it starts from.
+   *
+   * The class is added by the component once it has decided to track, so with
+   * no JS, on a touch screen or under `prefers-reduced-motion` it never lands
+   * and the frame keeps the ordinary lift it's excluded from above.
    */
   .solid-track {
-    --track-k: 0;
+    --ux: 1;
+    --uy: 1;
   }
 
   .solid-track::before {
-    transform: skewY(45deg) scaleX(calc(1 + var(--lift-on) * var(--track-k)));
+    transform: matrix(var(--ux), var(--uy), 0, 1, 0, 0);
   }
 
   .solid-track::after {
-    transform: skewX(45deg) scaleY(calc(1 + var(--lift-on) * var(--track-k)));
+    transform: matrix(1, 0, var(--ux), var(--uy), 0, 0);
   }
 
   /*

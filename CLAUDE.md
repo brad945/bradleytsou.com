@@ -264,9 +264,9 @@ class would stop emitting.
   Here that's 69x39 (40.8%), rounded to the nearest size whose travel
   divides evenly by the step count; see the jitter note below.
   The only thing that moves *on its own* is the DVD logo bouncing
-  screensaver-style inside the 150px box — the frame around it also leans
-  toward the cursor, but only while the cursor is near it; see
-  `AvatarTilt.tsx` and "The solids" below. It changes colour **only on
+  screensaver-style inside the 150px box. The photo itself never moves at
+  all — the block it stands on deforms toward a nearby cursor, which is a
+  different thing; see `AvatarPrism.tsx` and "The solids" below. It changes colour **only on
   wall contact**, like the real screensaver. `tintKeyframes()` builds
   that: with `alternate`, each axis ends an iteration against a wall,
   so hits land every 1.5s (x) and 1.7s (y), and the pattern repeats
@@ -924,21 +924,40 @@ running 8px past the panel's own padding is a change to the resting page.
 That's why Experience, the activity rows, Reviews and Achievements are all
 `li > div.solid-hover` with the border on the `li`.
 
-**The avatar frame is the one solid that doesn't lift — it leans.** At
-Bradley's request, in the message that asked for the rest of these fixes:
-"instead of poking out on the hover animation, just have it follow the
-cursor when it gets close to it." So it starts reaching ~110px out and the
-corner nearest the cursor comes forward. `AvatarTilt.tsx` owns it and the
-reasoning: it's the only place on the site with a camera in it, which is
-allowed there and nowhere else because it only happens while the pointer
-is within reach (so the resting page never sees it) and because what's
-inside is a photograph rather than type. The component adds `solid-track`
-itself, which is the whole fallback — no JS, a touch screen or
-`prefers-reduced-motion` and the class never lands, so the frame keeps the
-ordinary lift it's excluded from. The walls stay in CSS, scaled by
-`--track-k` against the same `--lift-on` as everything else. Known and
-accepted: the lean creeps 5px over Exy's tail, taking the clickable strip
-from 31px to 26px — the file records why that's left alone.
+**The avatar frame is the one solid that doesn't lift — its depth axis
+swings.** Bradley asked for the frame to follow the cursor and then
+corrected what that meant, and the correction is the design: "not the
+entire pfp element moving around… imagine it's a rectangular prism that is
+transforming. not moving position, the base stays the same, and the
+opposite face is moving around and so the edges are what's moving."
+
+So **the photograph does not move.** It sits exactly where it does at
+rest and the block underneath it deforms — the far end of the prism swings
+toward a cursor within ~110px and the two walls reshape to reach it. The
+only thing `AvatarPrism.tsx` writes is `--ux` / `--uy`, the depth vector in
+units of `--depth`, and `.solid-track` turns those into the general form of
+the two wall parallelograms. At `1, 1` those matrices *are* `skewY(45deg)`
+and `skewX(45deg)`, so a resting frame is drawn exactly as every other box
+on the page is.
+
+That makes it an instance of the projection argument rather than an
+exception to it. **The first version was a camera** — it translated and
+rotated the frame under a `perspective()`, which moved the photo and
+foreshortened it, and which crept up to 5px over Exy's tail as you reached
+for the tail (31px of clickable strip down to 26px). A frame that never
+moves can't cover anything, so that cost is gone with it.
+
+The vector is driven as an angle and a length rather than as x and y,
+because both components have to stay positive — a negative one folds a
+wall back over the face it grew from — and a clamped angle makes that
+impossible instead of merely remembered. The ceiling on the swing is a
+measurement: at full reach the right wall is 1.76x the resting depth,
+~18px, and the gap to the bio text beside it is 20px, with opaque steel
+walls that would otherwise paint over the words.
+
+The component adds `solid-track` itself, which is the whole fallback — no
+JS, a touch screen or `prefers-reduced-motion` and the class never lands,
+so the frame keeps the ordinary lift it's excluded from.
 
 **A clickable solid sinks when you click it.** The face drops past the
 page plane and the walls shrink with it, which is the lift run backwards
@@ -1220,12 +1239,13 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   the burst only to the egg completing; no confetti under
   `prefers-reduced-motion`, the same call `Reactions` makes.
   **A seventh, and the only one that breaks the shape of the rule: the
-  avatar frame leaning toward the cursor**, asked for by name in the same
-  message. Everything else here waits to be pointed at or clicked; this
-  one starts moving while the pointer is still ~110px away. That is the
-  whole point of it and Bradley asked for exactly that, so don't "fix" it
-  — and equally, don't read it as licence for anything else that reacts
-  to a pointer it isn't under.
+  avatar frame's depth axis swinging toward the cursor**, asked for by
+  name. Everything else here waits to be pointed at or clicked; this one
+  starts moving while the pointer is still ~110px away. Note what does
+  *not* move — the photo is static, and what deforms is the block it
+  stands on. That is the whole point of it and Bradley asked for exactly
+  that, so don't "fix" it — and equally, don't read it as licence for
+  anything else that reacts to a pointer it isn't under.
 - **Close visual fidelity to Steam's profile layout is intentional** —
   Bradley asked for it directly, superseding the earlier "inspired by the
   structure of, not a literal skin" note. Don't undo it. The carve-out
