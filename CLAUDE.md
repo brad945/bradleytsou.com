@@ -1094,6 +1094,21 @@ Four details worth keeping:
   with `--autoplay-policy=no-user-gesture-required`, and nothing thrown
   either way. The confetti and the unlock don't depend on it.
 
+**All 36 have to be lit within three seconds**, at Bradley's request, or
+every chip goes dark and the next one you point at starts a fresh run. The
+clock starts on the first chip rather than on load, so it isn't already
+running before anyone has noticed the egg exists. Measured: a sweep at
+20ms a chip finishes in 1.2s and unlocks; one at 110ms takes 4.2s and
+resets partway through, leaving ten lit and then none.
+
+There's no countdown drawn anywhere, deliberately. The chips going out
+*is* the feedback — the one thing a timer would tell you is that you ran
+out, and thirty-six lights dropping at once says it — and a progress bar
+would be the decorative meter this site took two of out. The timeout lives
+in a ref and the effect that arms it returns early when one is already
+ticking: the effect has to re-run as chips land, so re-arming each time
+would give three seconds *per chip* instead of three for the run.
+
 The count comes from `techStack.length`, so adding a tag to a role anywhere
 in `profile-data` makes the egg one chip longer by itself. It isn't
 keyboard-reachable: the chips are `<li>`s and making 36 of them tab stops

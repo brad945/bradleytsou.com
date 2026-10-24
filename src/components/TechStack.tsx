@@ -34,6 +34,23 @@ import { playPop } from "@/lib/celebrate";
  * `techStack` is derived from the tags on roles and projects — so adding a
  * tag anywhere on the site makes the egg one chip longer, by itself.
  *
+ * ## The three-second window
+ *
+ * All 36 have to be lit inside `WINDOW_MS`, at Bradley's request, or every
+ * chip goes dark and the next one you point at starts a fresh run. The clock
+ * starts on the first chip, not on load, so it can't be running before anyone
+ * has noticed the egg exists.
+ *
+ * There's no countdown drawn anywhere. The chips going out *is* the feedback
+ * — the one thing you'd want a timer to tell you is that you ran out, and
+ * thirty-six lights dropping at once says it. A progress bar would also be
+ * the decorative meter this site took two of out.
+ *
+ * The timeout lives in a ref rather than in state, and the effect that starts
+ * it returns early when one is already ticking. That matters: the effect has
+ * to re-run as chips land, so re-arming on every render would hand you three
+ * seconds *per chip* instead of three seconds for the run.
+ *
  * It isn't keyboard-reachable, and that's the honest cost of "hover over the
  * tech stack elements": the chips are `<li>`s and making 36 of them tab stops
  * would wreck the page's keyboard order to hide a joke behind it. The thing
@@ -57,11 +74,15 @@ const CHIP_REST = "border-line/70 bg-panel2/60 text-copy";
  */
 const CHIP_FOUND = "border-accent/60 bg-accent/10 text-accent";
 
+/** How long a run lasts. All 36 inside it or the chips go out. */
+const WINDOW_MS = 3000;
+
 export default function TechStack({ items }: { items: string[] }) {
   const { unlocked, unlock } = usePlayMode();
   const [found, setFound] = useState<ReadonlySet<string>>(() => new Set());
   const [burst, setBurst] = useState<{ x: number; y: number } | null>(null);
   const list = useRef<HTMLUListElement>(null);
+  const expiry = useRef(0);
 
   const collect = useCallback((tech: string) => {
     setFound((was) => {
@@ -71,6 +92,31 @@ export default function TechStack({ items }: { items: string[] }) {
       return next;
     });
   }, []);
+
+  /*
+   * Arm the window on the first chip of a run; disarm it when the run ends,
+   * either way. `expiry.current` is the live timeout id, and the early return
+   * on it is what makes this three seconds for the run rather than three
+   * seconds per chip — the effect re-runs as each chip lands.
+   */
+  useEffect(() => {
+    if (unlocked) return;
+
+    if (found.size === 0 || found.size >= items.length) {
+      window.clearTimeout(expiry.current);
+      expiry.current = 0;
+      return;
+    }
+
+    if (expiry.current) return;
+    expiry.current = window.setTimeout(() => {
+      expiry.current = 0;
+      setFound(new Set());
+    }, WINDOW_MS);
+  }, [found, items.length, unlocked]);
+
+  /* Unmounting mid-run must not leave a timeout holding a dead setState. */
+  useEffect(() => () => window.clearTimeout(expiry.current), []);
 
   /*
    * The unlock is an effect rather than part of the updater above, because a
