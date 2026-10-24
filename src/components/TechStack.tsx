@@ -30,13 +30,13 @@ import { playPop } from "@/lib/celebrate";
  * lifted position while its walls grew behind it. That trap is written up in
  * globals.css; this is the second thing to hit it.
  *
- * **The count comes from the data.** `items.length` is 36 today, and
+ * **The count comes from the data.** `items.length` is 34 today, and
  * `techStack` is derived from the tags on roles and projects — so adding a
  * tag anywhere on the site makes the egg one chip longer, by itself.
  *
  * ## The window, and the unwind
  *
- * All 36 have to be lit inside `WINDOW_MS`, at Bradley's request, or the run
+ * All 34 have to be lit inside `WINDOW_MS`, at Bradley's request, or the run
  * ends. The clock starts on the first chip, not on load, so it can't be
  * running before anyone has noticed the egg exists.
  *
@@ -61,7 +61,7 @@ import { playPop } from "@/lib/celebrate";
  * window *per chip* instead of one window for the run.
  *
  * It isn't keyboard-reachable, and that's the honest cost of "hover over the
- * tech stack elements": the chips are `<li>`s and making 36 of them tab stops
+ * tech stack elements": the chips are `<li>`s and making 34 of them tab stops
  * would wreck the page's keyboard order to hide a joke behind it. The thing
  * it gates is a page that currently says "Coming soon".
  */
@@ -87,7 +87,7 @@ const CHIP_REST = "border-line/70 bg-panel2/60 text-copy";
  */
 const CHIP_FOUND = "border-link/60 bg-link/10 text-link";
 
-/** How long a run lasts. All 36 inside it or the chips go out. */
+/** How long a run lasts. All 34 inside it or the chips go out. */
 const WINDOW_MS = 2500;
 
 export default function TechStack({ items }: { items: string[] }) {

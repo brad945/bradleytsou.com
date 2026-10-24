@@ -51,7 +51,17 @@ is real, not decorative:
   despite starting five months later, and that's precisely what sorting
   by date can't express. Don't re-add it. Roles are hand-maintained
   (LinkedIn has no public API); project rows pull live commits and
-  language via `ghRepo`
+  language via `ghRepo`.
+  **The "Various companies" row is gone**, at Bradley's request — the
+  contract Language and Audio Specialist work, named that way because the
+  arrangement rather than one employer was the truth of it. It had been
+  removed, renamed and restored once before, so this is the third decision
+  about it and the one that stands. It's still on his LinkedIn, so a
+  re-transcription would put it back: don't. Its three tags went with it,
+  which is why the Tech Stack panel is 34 chips and not 36 — and why
+  `Vocal Synthesis` / `Audio Engineering` are out of `STACK_ORDER` and
+  `Data Annotation` out of `NON_STACK_TAGS`, since none of the three had
+  anything left to rank
 - Right sidebar = status heading derived from the last push, stat rows
   (Repos / Hackathon Wins / Following / Gists / Contributions, plus
   Comments and Artwork-Portfolio as em-dashes because nothing counts them
@@ -1048,7 +1058,7 @@ wall.
 
 ## The Tech Stack easter egg, and the lock on /play
 
-Point at a Tech Stack chip and it stays lit in `link` blue. Light all 36 and
+Point at a Tech Stack chip and it stays lit in `link` blue. Light all 34 and
 play mode unlocks: a confetti burst, a synthesised pop, and a button through
 to `/play`, which says "Locked — complete the hidden easter egg first" until
 then. Bradley asked for all of it, including that it reset on refresh.
@@ -1103,7 +1113,7 @@ Four details worth keeping:
   with `--autoplay-policy=no-user-gesture-required`, and nothing thrown
   either way. The confetti and the unlock don't depend on it.
 
-**All 36 have to be lit within 2.5 seconds**, at Bradley's request, or the
+**All 34 have to be lit within 2.5 seconds**, at Bradley's request, or the
 run ends. The clock starts on the first chip rather than on load, so it
 isn't already running before anyone has noticed the egg exists.
 
@@ -1125,7 +1135,7 @@ instead of one window for the run.
 
 The count comes from `techStack.length`, so adding a tag to a role anywhere
 in `profile-data` makes the egg one chip longer by itself. It isn't
-keyboard-reachable: the chips are `<li>`s and making 36 of them tab stops
+keyboard-reachable: the chips are `<li>`s and making 34 of them tab stops
 would wreck the page's keyboard order to hide a joke behind it.
 
 **The rarity tokens are gone**, along with `nebula`, `plum` and `wine`.

@@ -12,7 +12,7 @@
  * ## It may not be audible, and that is not a bug here
  *
  * Browsers only let a page make noise after a *user activation*, and a
- * pointer moving over 36 chips is not one — only a click, a tap or a keypress
+ * pointer moving over 34 chips is not one — only a click, a tap or a keypress
  * counts. So a visitor who has hovered their way through the egg without
  * clicking anything at all gets silence, and nothing can change that from
  * inside the page. The confetti and the unlock are unaffected, which is why

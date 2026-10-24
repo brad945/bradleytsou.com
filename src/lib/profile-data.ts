@@ -604,25 +604,6 @@ export const roles: Role[] = [
     url: "https://www.medimpact.com",
   },
   {
-    /*
-     * Back on the page at Bradley's request, and named "Various companies"
-     * rather than micro1 — the work is contract, so the org line is now a
-     * description of the arrangement instead of one employer's name.
-     *
-     * The `url` went with the name. It pointed at micro1.ai, and a row that
-     * says "Various companies" cannot link to one of them without
-     * contradicting itself. The labs it names in the blurb are still there,
-     * which is where the specifics belong.
-     */
-    org: "Various companies",
-    tags: ["Vocal Synthesis", "Data Annotation", "Audio Engineering"],
-    title: "Language and Audio Specialist",
-    start: "Jun 2026",
-    end: "Jul 2026",
-    blurb:
-      "Producing/labeling training data for generative-music frontier AI labs including Spotify Labs, xAI and Mercor.",
-  },
-  {
     org: "DevEval",
     tags: ["Next.js", "TypeScript", "Postgres", "Docker", "Forward-Deployed"],
     ghRepo: "sennaicodes/deveval",
@@ -1089,7 +1070,6 @@ const NON_STACK_TAGS = new Set([
   "Modelling",
   "Tutoring",
   "Music",
-  "Data Annotation",
   // A property of a system rather than a thing used to build one
   "Real-time",
 ]);
@@ -1187,13 +1167,7 @@ const STACK_ORDER: readonly (readonly string[])[] = [
     "Data Visualization",
   ],
   // Domain competencies — real, but not what anyone scans a stack for.
-  [
-    "Cybersecurity",
-    "HIPAA / PHI",
-    "Vocal Synthesis",
-    "Audio Engineering",
-    "UI/UX",
-  ],
+  ["Cybersecurity", "HIPAA / PHI", "UI/UX"],
 ];
 
 /** tag -> sort key. Unranked tags sort after every ranked one. */
