@@ -3,73 +3,85 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 /**
- * The avatar frame as a prism whose far end follows the cursor.
+ * The avatar frame as a prism pinned to the page by its back face.
  *
  * Every other solid on this page lifts a fixed amount when you point at it.
- * This one doesn't, at Bradley's request — and the request came in two parts,
- * both of which matter. First: "instead of poking out on the hover animation,
- * just have it follow the cursor when it gets close to it." Then, on seeing a
- * version that moved the whole frame: "not the entire pfp element moving
- * around… imagine it's a rectangular prism that is transforming. not moving
- * position, the base stays the same, and the opposite face is moving around
- * and so the edges are what's moving/changing."
+ * This one doesn't, at Bradley's request — and the request took three
+ * messages to settle, all three of which are the design:
  *
- * So **the photograph does not move.** It is nailed to the page exactly where
- * it sits at rest, and the block underneath it deforms: the far end of the
- * prism swings around and the two visible walls reshape to reach it. The only
- * thing this component writes is a depth vector.
+ *   "instead of poking out on the hover animation, just have it follow the
+ *   cursor when it gets close to it."
  *
- * ## Why that's better than the version it replaces, not just different
+ *   "not the entire pfp element moving around… imagine it's a rectangular
+ *   prism that is transforming. not moving position, the base stays the same,
+ *   and the opposite face is moving around and so the edges are what's
+ *   moving/changing."
  *
- * The first one translated the frame and rotated it under a `perspective()`.
- * That moved the photo, foreshortened it, and made this the one place on the
- * site with a camera in it — a documented exception to the projection
- * argument the whole solid system rests on. This version has no camera, no
- * rotation and no translation. The face projects 1:1 because nothing touches
- * it, and the walls are the same two parallelograms the rest of the page
- * draws, with a depth vector that isn't 45°. It stopped being an exception
- * and became an instance.
+ *   "the pfp is supposed to be the part that moves and the 'base' face is the
+ *   proverbial part that's attached to the website."
  *
- * It also ends the one real cost the old version had: the frame crept up to
- * 5px left over Exy's tail as you reached for it, taking the clickable strip
- * from 31px to 26px. A frame that never moves can't cover anything.
+ * So: **the back face is glued to the page and the photograph is the end that
+ * sticks out and moves.** The back face is the one you never see, down-right
+ * of the photo at `--depth` along the axis; it never moves. The photo shifts
+ * toward a nearby pointer, and the two walls are the lateral faces joining
+ * the two, so what visibly changes are the edges.
  *
- * ## The vector, and why it's polar
+ * The first attempt moved the whole object — a translate plus a rotation
+ * under a `perspective()` — which is what the second message rejected. The
+ * second pinned the *photo* and swung the back face, which is the same shear
+ * with the two faces swapped, and is what the third message rejected. This
+ * one has them the right way round.
  *
- * `--ux` / `--uy` are the depth vector in units of `--depth`, and both have
- * to stay positive: the right wall starts at the face's right edge and the
- * underside at its bottom edge, so a negative component folds a wall back
- * over the face it grew from. Driving x and y separately makes that a
- * constraint to remember. Driving an angle and a length makes it impossible —
- * the angle is clamped inside the quadrant and the length is never negative,
- * so nothing downstream can produce a folded wall.
+ * There is still no camera in it: a translate on the face and two sheared
+ * quads, no rotation and no perspective. The photo is never foreshortened, so
+ * this stays an instance of the projection argument the solid system rests on
+ * rather than an exception to it.
  *
- * - **Angle.** 45° at rest, swung up to `SWING` toward the cursor along the
- *   anti-diagonal. Cursor up and to the right and the block points right;
- *   down and to the left and it points down. That axis is the one that's
- *   free: the other one is the depth axis itself, and leaning along *that*
- *   just makes the prism longer, which is what proximity already does.
- * - **Length.** `√2` at rest — the diagonal of a `--depth` square, which is
- *   what a 45° wall vector actually measures — growing by `GROW` as the
- *   pointer closes. At full reach that's the 1.5x the ordinary hover lift
- *   scales the walls to, so the frame reaches about as far out of the page
- *   as it used to and only the direction is new.
+ * ## What it writes, and why nothing can fold
+ *
+ * `--ux` / `--uy` are the offset from the moved face to the pinned base, in
+ * units of `--depth`; `--sa` / `--fa` are the angles the walls shear at; and
+ * the face's own translate is derived from `--ux` / `--uy` rather than being
+ * a second opinion about the same geometry — it is exactly
+ * `(1 - u) · depth`, which is what keeps the base still. See `.solid-track`
+ * in globals.css for the two wall transforms.
+ *
+ * Both scale factors have to stay positive: the right wall starts at the
+ * face's right edge and the underside at its bottom edge, so a negative one
+ * folds a wall back over the face it grew from. `RISE` and `TRAVEL` below are
+ * fractions of the depth, bounded so that can't happen — `u` runs 0.75 to
+ * 1.75 and never approaches zero.
+ *
+ * ## No transition while it's following
+ *
+ * `--solid-ms` goes to `0ms` while tracking, so the prism is redrawn against
+ * the pointer each frame rather than easing toward it. Two reasons, and the
+ * second is the one that bit: a 90ms ease re-targeted on every `pointermove`
+ * lags the cursor for no benefit, and interpolating transforms at all is what
+ * made the first version glitch — see the note in globals.css on why the
+ * walls are a skew and a scale rather than one `matrix()`. Letting go
+ * restores the 260ms overshoot, so the settle still bounces like every other
+ * box.
  */
 
 /** How far outside the frame the pointer is still "close", in px. */
 const REACH = 110;
 /**
- * Degrees the depth axis swings off 45.
- *
- * With `GROW` below, this sets how far the right wall can reach: at full
- * swing it's `√2 · (1 + GROW) · cos(45° − SWING)` deep, which is 1.76 x the
- * resting depth, or ~18px on this frame. The gap to the bio text beside it
- * is 20px and the walls are opaque steel, so the ceiling is a measurement
- * rather than a preference — raise either and the wall paints over the text.
+ * How much further out of the page the photo sits at full reach, as a
+ * fraction of `--depth`. 0.25 x 10px = 2.5px, along the depth axis.
  */
-const SWING = 22;
-/** How much longer the prism gets at full reach. */
-const GROW = 0.35;
+const RISE = 0.25;
+/**
+ * How far the photo shifts toward the pointer, as a fraction of `--depth`.
+ *
+ * With `RISE` this sets both of the bounds that matter. The walls reach
+ * `(1 + RISE + TRAVEL) x depth` = 1.75x, or 17.5px on this frame, against
+ * 20px of gap to the bio text beside it — with opaque steel walls, so that
+ * ceiling is a measurement rather than a preference. And the photo travels up
+ * to 7.5px toward the top-left, which is how much of Exy's tail it can cover.
+ * Raise either number and check both.
+ */
+const TRAVEL = 0.5;
 
 /** 0 at the edge of reach, 1 against the frame, eased at both ends. */
 function smoothstep(t: number) {
@@ -147,54 +159,64 @@ export default function AvatarPrism({
          */
         frame.style.removeProperty("--ux");
         frame.style.removeProperty("--uy");
+        frame.style.removeProperty("--sa");
+        frame.style.removeProperty("--fa");
+        frame.style.removeProperty("transform");
         frame.style.removeProperty("--solid-ms");
-        frame.style.removeProperty("--solid-ease");
         return;
       }
 
       /*
-       * Where the pointer sits along the anti-diagonal: positive up and to
-       * the right, negative down and to the left. Measured from the frame's
-       * centre and normalised over roughly its own half-size, so the swing is
-       * most of the way over by the time the pointer is on the photo rather
-       * than still building at the edge of reach.
+       * Direction to the pointer, each axis +/-1 by a little outside the
+       * frame rather than at the edge of reach — the photo should be most of
+       * the way over by the time the pointer is on it, not still building.
        */
-      const span = (w + h) / 4 + 60;
-      const s = clamp(
-        (px - (left + w / 2) - (py - (top + h / 2))) / span,
-        -1,
-        1,
-      );
+      const dirX = clamp((px - (left + w / 2)) / (w / 2 + 60), -1, 1);
+      const dirY = clamp((py - (top + h / 2)) / (h / 2 + 60), -1, 1);
 
-      const angle = ((45 - s * k * SWING) * Math.PI) / 180;
-      /* √2 is the resting vector's length: the diagonal of a --depth square. */
-      const reach = Math.SQRT2 * (1 + GROW * k);
+      /*
+       * The offset from the face to the pinned base, in units of depth. The
+       * photo moving *toward* the pointer shortens the wall on that side,
+       * which is what a prism leaning that way does: its lateral face turns
+       * edge-on to you.
+       */
+      const ux = 1 + k * (RISE - TRAVEL * dirX);
+      const uy = 1 + k * (RISE - TRAVEL * dirY);
 
       if (resting) {
         resting = false;
         /*
-         * Quick and flat while it's following. The bounce is for a box that
-         * was let go of; a prism tracking the pointer wants to be under it,
-         * and an overshoot on every mouse move reads as wobble.
-         *
-         * **The custom properties, not `transition-duration` itself.** All
-         * the motion here is in the walls, and the walls are
-         * pseudo-elements: their transition comes from `var(--solid-ms)` /
-         * `var(--solid-ease)` in the `::before, ::after` rule. Custom
-         * properties inherit and `transition-duration` does not, so setting
-         * the longhand on the element reaches the face — which never
-         * transitions anything — and leaves the walls on the solid system's
-         * 260ms overshoot. Measured before the fix: the element read 0.09s
-         * while `::before` read 0.26s on `cubic-bezier(0.34, 1.7, 0.5, 1)`,
-         * and a wall swinging 0.746 → 1.757 passed through 1.827, which is
-         * 18.3px against the 20px of clearance this has.
+         * No easing at all while it's following — see the note at the top of
+         * this file. **`--solid-ms`, not `transition-duration`:** the motion
+         * is in the walls, the walls are pseudo-elements, and their
+         * transition reads `var(--solid-ms)` from the `::before, ::after`
+         * rule. Custom properties inherit and `transition-duration` does
+         * not, so the longhand reaches the face and leaves the walls easing
+         * on their own.
          */
-        frame.style.setProperty("--solid-ms", "90ms");
-        frame.style.setProperty("--solid-ease", "ease-out");
+        frame.style.setProperty("--solid-ms", "0ms");
       }
 
-      frame.style.setProperty("--ux", (reach * Math.cos(angle)).toFixed(4));
-      frame.style.setProperty("--uy", (reach * Math.sin(angle)).toFixed(4));
+      frame.style.setProperty("--ux", ux.toFixed(4));
+      frame.style.setProperty("--uy", uy.toFixed(4));
+      /* Each wall shears along the same face-to-base axis. */
+      frame.style.setProperty(
+        "--sa",
+        `${((Math.atan2(uy, ux) * 180) / Math.PI).toFixed(3)}deg`,
+      );
+      frame.style.setProperty(
+        "--fa",
+        `${((Math.atan2(ux, uy) * 180) / Math.PI).toFixed(3)}deg`,
+      );
+      /*
+       * And the face. Derived from the same two numbers rather than computed
+       * separately, because `(1 - u) · depth` *is* the offset that leaves
+       * the base where it is — two independent expressions of that could
+       * drift apart and un-pin it.
+       */
+      frame.style.transform =
+        "translate(calc((1 - var(--ux)) * var(--depth))," +
+        " calc((1 - var(--uy)) * var(--depth)))";
     };
 
     const onMove = (event: PointerEvent) => {
@@ -216,8 +238,10 @@ export default function AvatarPrism({
       if (queued) cancelAnimationFrame(queued);
       frame.style.removeProperty("--ux");
       frame.style.removeProperty("--uy");
+      frame.style.removeProperty("--sa");
+      frame.style.removeProperty("--fa");
+      frame.style.removeProperty("transform");
       frame.style.removeProperty("--solid-ms");
-      frame.style.removeProperty("--solid-ease");
     };
   }, []);
 

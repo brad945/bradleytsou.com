@@ -264,9 +264,9 @@ class would stop emitting.
   Here that's 69x39 (40.8%), rounded to the nearest size whose travel
   divides evenly by the step count; see the jitter note below.
   The only thing that moves *on its own* is the DVD logo bouncing
-  screensaver-style inside the 150px box. The photo itself never moves at
-  all — the block it stands on deforms toward a nearby cursor, which is a
-  different thing; see `AvatarPrism.tsx` and "The solids" below. It changes colour **only on
+  screensaver-style inside the 150px box. The photo moves too, but only
+  toward a cursor that's already near it, off a back face glued to the
+  page; see `AvatarPrism.tsx` and "The solids" below. It changes colour **only on
   wall contact**, like the real screensaver. `tintKeyframes()` builds
   that: with `alternate`, each axis ends an iteration against a wall,
   so hits land every 1.5s (x) and 1.7s (y), and the pattern repeats
@@ -931,29 +931,53 @@ entire pfp element moving around… imagine it's a rectangular prism that is
 transforming. not moving position, the base stays the same, and the
 opposite face is moving around and so the edges are what's moving."
 
-So **the photograph does not move.** It sits exactly where it does at
-rest and the block underneath it deforms — the far end of the prism swings
-toward a cursor within ~110px and the two walls reshape to reach it. The
-only thing `AvatarPrism.tsx` writes is `--ux` / `--uy`, the depth vector in
-units of `--depth`, and `.solid-track` turns those into the general form of
-the two wall parallelograms. At `1, 1` those matrices *are* `skewY(45deg)`
-and `skewX(45deg)`, so a resting frame is drawn exactly as every other box
-on the page is.
+He corrected it twice more, and the final one settles which face is which:
+"the pfp is supposed to be the part that moves and the 'base' face is the
+proverbial part that's attached to the website." So **the back face is
+glued to the page and the photograph is the end that sticks out and
+moves** — the photo shifts toward a pointer within ~110px while the back
+face, down-right of it at `--depth`, stays exactly put. Measured: the
+base's right edge sits at x=400 and its bottom at y=343 at every pointer
+position on the page, while the photo moves within ~6px of its resting
+spot. The walls are the lateral faces joining the two, so what visibly
+changes are the edges.
 
-That makes it an instance of the projection argument rather than an
-exception to it. **The first version was a camera** — it translated and
-rotated the frame under a `perspective()`, which moved the photo and
-foreshortened it, and which crept up to 5px over Exy's tail as you reached
-for the tail (31px of clickable strip down to 26px). A frame that never
-moves can't cover anything, so that cost is gone with it.
+**There are three versions of this in the history and the first two are
+both wrong in instructive ways.** The first translated *and rotated* the
+whole frame under a `perspective()`, which moved the object rather than
+deforming it and made this the one place on the site with a camera in it.
+The second pinned the photo and swung the back face — the same shear with
+the faces swapped, so the thing glued to the page was the thing you look
+at. Only the third has them the right way round, and none of the three
+needed a camera after the first.
 
-The vector is driven as an angle and a length rather than as x and y,
-because both components have to stay positive — a negative one folds a
-wall back over the face it grew from — and a clamped angle makes that
-impossible instead of merely remembered. The ceiling on the swing is a
-measurement: at full reach the right wall is 1.76x the resting depth,
-~18px, and the gap to the bio text beside it is 20px, with opaque steel
-walls that would otherwise paint over the words.
+`AvatarPrism.tsx` writes `--ux` / `--uy` (the face-to-base offset in units
+of `--depth`), `--sa` / `--fa` (the angles the walls shear at), and the
+face's own translate, which is derived from the first two as
+`(1 - u) · depth` rather than computed separately — two expressions of the
+same geometry could drift apart and un-pin the base.
+
+**The walls are `skewY(a) scaleX(u)`, not one `matrix()`, and that is what
+fixed the glitching.** Two `matrix()` values interpolate by decomposition:
+the browser pulls each into translate/rotate/scale/skew and interpolates
+those, so a wall moving between two shears passes through states carrying
+rotation that neither endpoint has. Measured on the version that did it, a
+wall swinging 0.746 → 1.757 went through a matrix with `c = -0.14` where
+both ends have `c = 0`. Re-targeted on every `pointermove` that is visible
+as a wobble, and Bradley's word for it was "extremely glitchy". Two lists
+of the *same* functions interpolate componentwise.
+
+`--solid-ms` also goes to `0ms` while tracking, so there is no
+interpolation at all — the prism is redrawn against the pointer each frame
+and lags nothing. Letting go restores the 260ms overshoot, so it still
+settles with the same bounce as every other box.
+
+Two bounds, both measurements. The walls reach 1.75x the resting depth,
+17.5px, against 20px of gap to the bio text — with opaque steel walls that
+would otherwise paint over the words. And the photo travels up to ~6px
+toward the top-left, which covers that much of Exy's tail: the clickable
+strip goes from 31px to 25px. That cost is back, and it is the price of the
+photo being the part that moves.
 
 The component adds `solid-track` itself, which is the whole fallback — no
 JS, a touch screen or `prefers-reduced-motion` and the class never lands,
@@ -1244,9 +1268,9 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   **A seventh, and the only one that breaks the shape of the rule: the
   avatar frame's depth axis swinging toward the cursor**, asked for by
   name. Everything else here waits to be pointed at or clicked; this one
-  starts moving while the pointer is still ~110px away. Note what does
-  *not* move — the photo is static, and what deforms is the block it
-  stands on. That is the whole point of it and Bradley asked for exactly
+  starts moving while the pointer is still ~110px away, and the photo is
+  what moves — toward the pointer, off a back face glued to the page.
+  That is the whole point of it and Bradley asked for exactly
   that, so don't "fix" it — and equally, don't read it as licence for
   anything else that reacts to a pointer it isn't under.
   **An eighth: the Tech Stack easter egg** — chips lighting as you point at
