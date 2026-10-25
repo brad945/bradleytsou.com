@@ -90,12 +90,16 @@ const CHIP_FOUND = "border-link/60 bg-link/10 text-link";
 /**
  * How long a run lasts. All 34 inside it or the chips go out.
  *
- * Bradley's number, tightened twice: 3s, then 2.5s, now 2.2 — about 65ms a
- * chip, so it wants one unbroken sweep rather than a careful one. A mouse
- * dragged straight across the panel does it in ~1.6s, which is the headroom
- * that makes it winnable at all.
+ * Bradley's number, and it has moved: 3s, then 2.5, then 2.2, then back to
+ * 2.5. Each value was asked for by name, so don't read the history as a
+ * search for the right one — 2.2 worked fine; the difference is taste rather
+ * than a measurement.
+ *
+ * At 2.5s that's about 74ms a chip, so it still wants one unbroken sweep. A
+ * pointer dragged straight across the panel lands all 34 in ~1.2s, which is
+ * the headroom that makes it winnable at all.
  */
-const WINDOW_MS = 2200;
+const WINDOW_MS = 2500;
 
 export default function TechStack({ items }: { items: string[] }) {
   const { unlocked, unlock } = usePlayMode();

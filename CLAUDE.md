@@ -1195,12 +1195,14 @@ Four details worth keeping:
   with `--autoplay-policy=no-user-gesture-required`, and nothing thrown
   either way. The confetti and the unlock don't depend on it.
 
-**All 34 have to be lit within 2.2 seconds**, at Bradley's request, or the
-run ends — his number, tightened from 3s to 2.5 to 2.2. That is about 65ms
-a chip, so it takes one unbroken sweep; a pointer dragged straight across
-the panel lands them in ~1.6s, which is the only reason it's winnable. The
-clock starts on the first chip rather than on load, so it isn't already
-running before anyone has noticed the egg exists.
+**All 34 have to be lit within 2.5 seconds**, at Bradley's request, or the
+run ends. His number, and it has moved — 3s, then 2.5, then 2.2, then back
+to 2.5 — with every value asked for by name, so the history isn't a search
+for the right one and nothing here was wrong with 2.2. At 2.5 that's about
+74ms a chip, so it takes one unbroken sweep; a pointer dragged straight
+across the panel lands them in ~1.2s, which is the only reason it's
+winnable. The clock starts on the first chip rather than on load, so it
+isn't already running before anyone has noticed the egg exists.
 
 **Running out doesn't drop them all at once.** They go out one at a time,
 each at the same offset into the unwind that it was lit at into the run —
