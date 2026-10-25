@@ -693,6 +693,9 @@ class would stop emitting.
   Casual Pro Medium, which Bradley asked for and the site cannot load —
   Bold Studio sells it per-licence and embedding needs a paid webfont
   licence, the same wall as Motiva Sans.
+  All three are **`next/font/local`, served from `src/app/fonts/`**, and
+  that is a fix rather than a preference — see "Typography" below before
+  putting any of them back on `next/font/google`.
 
 ## Design tokens (already in tailwind.config.ts)
 
@@ -768,35 +771,51 @@ headings are weight 200, so every `font-extralight` here became
 `font-light`; the CSS states the weight that actually renders instead of
 asking for one that silently clamps. Don't "restore" 200.
 
-**`experimental.webpackBuildWorker: false` in `next.config.mjs` is a font
-fix, and the whole site's type depends on it.** `next/font/google` names
-its classes and families by hashing the CSS it fetched from Google —
-`sha1(css)`, first six hex — and *both* the server and the client compiler
-run that loader. If their two hashes disagree, the `__variable_*` class the
-server writes onto `<html>` names a rule the stylesheet never defines, so
-`--font-sans` resolves to nothing and every element on the page falls back
-to `system-ui`. That is what was live on bradleytsou.com: HTML asking for
-`__variable_2fad4c` against a stylesheet defining `__variable_4dc837`, with
-"Bradley Tsou" measuring 158px instead of 172.
+**The three fonts are self-hosted woff2 files in `src/app/fonts/`, loaded
+with `next/font/local`, and that is a bug fix** — for days the live site
+rendered entirely in `system-ui` while every local build was fine.
 
-next/font guards against it with a one-shot in-process cache, and its own
-comment says why: *"Hacky way to make sure the fetch is only done once.
-Otherwise both the client and server compiler would fetch the CSS… because
-a hash is generated based on the CSS content."* `webpackBuildWorker` runs
-the two compilers in **separate processes**, so that cache is never hit.
-Measured, with a `console.log` in `fetch-css-from-google-fonts.js`: six
-fetches across two pids with the worker on, three in one pid with it off.
-Six independent fetches agree only as long as Google returns byte-identical
-responses to both — and on Vercel's build machines they didn't.
+The mechanism, because it will bite again otherwise: next/font names its
+classes and families `sha1(css).slice(0, 6)` of the stylesheet **it** built,
+and *both* the server and the client compiler run that loader. If the two
+hashes disagree, the `__variable_*` class the server writes onto `<html>`
+names a rule the stylesheet never defines, `--font-sans` resolves to
+nothing, and the whole page falls back. That is exactly what was live: HTML
+asking for `__variable_2fad4c` against CSS defining `__variable_4dc837`,
+with "Bradley Tsou" measuring 158px against 172 for the real thing.
 
-It defaults **on** for any project without a custom `webpack` key, so this
-had been the behaviour all along and the live font was working by luck. The
-tell that it is this and not a stale build cache: the emitted woff2 files
-are identical in the HTML's preloads and in the CSS (same bytes, same
-content hash) while only the 6-char name hash differs. Checking the live
-page is one line — the `__variable_*` names in the HTML must match the ones
-inside the CSS file it links — and it's worth running after any next/font
-or Next version change.
+With `next/font/google` that stylesheet comes off the network, once per
+compiler. next/font knows it and guards with a one-shot in-process cache,
+whose own comment reads: *"Hacky way to make sure the fetch is only done
+once. Otherwise both the client and server compiler would fetch the CSS…
+because a hash is generated based on the CSS content."* Measured with a
+`console.log` in `fetch-css-from-google-fonts.js`: **six fetches across two
+pids**, because `experimental.webpackBuildWorker` (on by default for any
+project without a custom `webpack` key) runs the two compilers in separate
+processes, so that cache never hits. Two independent fetches agree only
+while the responses are byte-identical.
+
+Reading the files off disk removes the fetch, so the two hashes are
+identical by construction and no build-cache state can make one compiler
+see a different stylesheet than the other. `webpackBuildWorker: false`
+stays in `next.config.mjs` as the belt to this braces — it also makes the
+build one process, which is where that cache was designed to work.
+
+**The files are the exact subsets Google was serving**, lifted out of this
+project's own `.next/static/media` rather than re-encoded, so the rendering
+is unchanged — same content hashes, verified. All three families are OFL,
+which is the whole reason this is allowed; Motiva Sans and BB Casual are
+not, and self-hosting those is still off the table. Latin only, and that
+is the one narrowing: the subset is `u+00??` plus the entire
+general-punctuation block (every dash, curly quote and ellipsis here) plus
+€, ™ and the arrows, and anything outside it falls back per glyph.
+`next/font/local` takes no per-`src` `unicode-range`, so splitting the
+subsets was not on offer.
+
+**How to check it, in one line:** the `__variable_*` names in the live HTML
+must match the ones inside the CSS file that HTML links. Worth running
+after any Next upgrade or font change — and note the name hashes change
+whenever the font CSS does, so don't hardcode them anywhere.
 
 The scale lives as `.t-*` classes in `src/app/globals.css` and is taken
 **from Steam's own `profilev2.css`**, not estimated off screenshots:

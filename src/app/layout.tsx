@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Gabarito, JetBrains_Mono, Open_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import AnimatedFavicon from "@/components/AnimatedFavicon";
 import MarkReveal from "@/components/MarkReveal";
@@ -20,14 +20,46 @@ import { profile, siteOrigin, tabName } from "@/lib/profile-data";
  * asked for `font-extralight` was moved to `font-light` rather than left to
  * clamp silently, so the CSS says the weight that actually renders.
  */
-const sans = Open_Sans({
-  subsets: ["latin"],
+/*
+ * **Self-hosted woff2, not `next/font/google`, and that is a bug fix rather
+ * than a preference.** next/font names its classes and families
+ * `sha1(css).slice(0, 6)` of the stylesheet it built, and both the server and
+ * the client compiler run that loader. With Google the stylesheet comes off
+ * the network — a fetch per compiler — so the two hashes agree only while the
+ * two responses are byte-identical. When they aren't, the `__variable_*` class
+ * the server writes onto `<html>` names a rule the stylesheet never defines,
+ * `--font-sans` resolves to nothing, and every element on the page falls back
+ * to `system-ui`. That is what was live on bradleytsou.com for days: HTML
+ * asking for `__variable_2fad4c` against CSS defining `__variable_4dc837`.
+ *
+ * Reading the files off disk makes the two hashes identical by construction.
+ * There is no fetch left to disagree about, and no build-cache state that can
+ * make one compiler see a different stylesheet than the other.
+ *
+ * **The files are the exact subsets Google was already serving**, lifted out
+ * of this project's own build output, so nothing about the rendering changes
+ * and nothing was re-encoded. All three families are OFL, so self-hosting is
+ * what their licence is for — unlike Motiva Sans and BB Casual above, which
+ * is the distinction that matters here.
+ *
+ * Latin only, which is the one real narrowing and worth knowing: that subset
+ * is `u+00??` plus the whole general-punctuation block — every dash, curly
+ * quote and ellipsis on the site — plus €, ™ and the arrows. A character
+ * outside it now falls back per glyph instead of pulling a second subset.
+ * `next/font/local` has no per-`src` `unicode-range`, so splitting them was
+ * not on offer anyway.
+ */
+const sans = localFont({
+  /* The weight range Google's own @font-face declared for this file. */
+  src: "./fonts/open-sans-latin.woff2",
+  weight: "300 800",
   variable: "--font-sans",
   display: "swap",
 });
 
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
+const mono = localFont({
+  src: "./fonts/jetbrains-mono-latin.woff2",
+  weight: "100 800",
   variable: "--font-mono",
   display: "swap",
 });
@@ -43,16 +75,18 @@ const mono = JetBrains_Mono({
  * **A stand-in for BB Casual Pro Medium**, which Bradley asked for and the
  * site cannot load: it's Bold Studio's, sold per-licence, and embedding it
  * needs a paid *webfont* licence. Same wall as Motiva Sans. If that licence is
- * ever bought, drop the .woff2 in and swap this for `next/font/local`; don't
- * point an @font-face at a copy from a free-font aggregator.
+ * ever bought the swap is now one line — drop its .woff2 in beside these three
+ * and change the `src` — but don't point this at a copy from a free-font
+ * aggregator. Gabarito being self-hosted is not licence to self-host that one;
+ * the difference is OFL versus a per-use purchase, not where the file sits.
  *
  * Gabarito is the closest free face — a geometric sans with real stroke
  * modulation rather than the dead-even strokes of Outfit or Poppins, which is
  * the trait BB Casual is built around — and it carries a true Medium, so the
  * named weight survives the substitution.
  */
-const sign = Gabarito({
-  subsets: ["latin"],
+const sign = localFont({
+  src: "./fonts/gabarito-500-latin.woff2",
   weight: "500",
   variable: "--font-sign",
   display: "swap",

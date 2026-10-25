@@ -6,9 +6,10 @@ const nextConfig = {
   // asked to fetch a remote host.
   experimental: {
     /*
-     * **This is the fix for the font breaking in production, and the reason is
-     * in next/font's own source.** `next/font/google` hashes the CSS it
-     * fetched from Google to name its classes and font families:
+     * **Half of the fix for the font breaking in production; the other half,
+     * and the load-bearing one, is that the three families are self-hosted
+     * now — see `src/app/layout.tsx`.** `next/font` hashes the CSS it built to
+     * name its classes and font families:
      *
      *   const fontFamilyHash = getHashDigest(Buffer.from(css), "sha1", "hex", 6)
      *
@@ -34,9 +35,12 @@ const nextConfig = {
      *
      * It defaults on — `webpackBuildWorker || (undefined && !config.webpack)`
      * is true for any project without a custom `webpack` key — so turning it
-     * off is the whole change. One process, one fetch, one hash, by design
-     * rather than by luck. The cost is that the two compilations no longer
-     * overlap; on a site this size that is a few seconds of build time.
+     * off puts the two compilers back in one process, which is where that
+     * cache was designed to work. With the fonts read off disk there is no
+     * fetch left to share, so this is belt rather than braces: it is here so
+     * that a future `next/font/google` call can't quietly reintroduce the
+     * bug. The cost is that the two compilations no longer overlap, which on
+     * a site this size is a few seconds of build time.
      *
      * Don't remove this without checking the live page: the `__variable_*`
      * names in the HTML must match the ones in the CSS file it links.
