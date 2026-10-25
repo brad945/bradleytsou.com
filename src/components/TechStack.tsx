@@ -87,8 +87,15 @@ const CHIP_REST = "border-line/70 bg-panel2/60 text-copy";
  */
 const CHIP_FOUND = "border-link/60 bg-link/10 text-link";
 
-/** How long a run lasts. All 34 inside it or the chips go out. */
-const WINDOW_MS = 2500;
+/**
+ * How long a run lasts. All 34 inside it or the chips go out.
+ *
+ * Bradley's number, tightened twice: 3s, then 2.5s, now 2.2 — about 65ms a
+ * chip, so it wants one unbroken sweep rather than a careful one. A mouse
+ * dragged straight across the panel does it in ~1.6s, which is the headroom
+ * that makes it winnable at all.
+ */
+const WINDOW_MS = 2200;
 
 export default function TechStack({ items }: { items: string[] }) {
   const { unlocked, unlock } = usePlayMode();
@@ -135,8 +142,8 @@ export default function TechStack({ items }: { items: string[] }) {
   /*
    * Arm the window on the first chip of a run; disarm it when the run ends,
    * either way. `expiry.current` is the live timeout id, and the early return
-   * on it is what makes this three seconds for the run rather than three
-   * seconds per chip — the effect re-runs as each chip lands.
+   * on it is what makes `WINDOW_MS` the budget for the whole run rather than
+   * for every chip — the effect re-runs as each chip lands.
    */
   useEffect(() => {
     if (unlocked) return;
