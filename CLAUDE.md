@@ -1030,9 +1030,9 @@ in the single frame the pointer crosses the edge, with `--solid-ms` at 0ms
 and therefore nothing to round it off. That is the same single-frame jump
 Bradley called "extremely glitchy" the first time. `ENTER_MS` is a 160ms
 ease, run in JS alongside the rest of the tracking; measured at the current
-travel, no frame moves the photo more than 4.5px, against the ~17px the
-snap would be. (It was 1.4px against 8.4px when the travel was half this —
-the same 160ms doing more work, not a knob that was retuned.) The ramp also needs its own
+travel, no frame moves the photo more than 4.5px, against the ~15px the
+snap would be. (It was 1.4px against a measured 8.4px when the travel was
+half this — the same 160ms doing more work, not a knob that was retuned.) The ramp also needs its own
 `requestAnimationFrame` loop, because someone who points at the photo and
 holds still gets one `pointermove` and then nothing.
 
@@ -1061,6 +1061,9 @@ it, since a negative scale folds a wall back over the face it grew from.
 So the wall thins to nothing and stops, while the face keeps travelling on
 the true `u`, which is what leaves the base pinned — 400.0 and 343.0 at
 every pointer position in an eight-direction sweep, exactly as before.
+Strictly the opposite lateral face comes into view as that happens, about
+1.5px of it at worst, and it isn't drawn: there are two pseudo-elements
+and both are spoken for, and 1.5px doesn't justify more DOM.
 Each angle takes the other axis's true value against its own clamped one
 (`atan2(uy, wx)`, `atan2(ux, wy)`), so a collapsed wall still meets the
 base on the axis it hasn't collapsed along, and both stay clear of 90° —
@@ -1094,10 +1097,14 @@ be, and worth re-measuring rather than assuming next time either knob
 moves. (An older version of this note had the two knobs capped by that
 gap. They aren't, and never were.)
 
-The other real cost is Exy's tail. The photo travels
-`(RISE + TRAVEL) · depth` toward the top-left — 22.5px at the current
-0.25 / 2 — and covers that much of the strip: 31 columns of clickable tail
-down to 15, measured, from 22 at the previous 1 and 24 at 0.7. **The gate
+The other real cost is Exy's tail. `(RISE + TRAVEL) · depth` is 22.5px per
+axis at the current 0.25 / 2, but that is the limit and not the number —
+it needs `k · dir` at 1, which the paragraph below says can't happen.
+**Measured, the photo moves 16.1px on x**, 21.9px as a diagonal, and it
+covers that much of the strip: 31 columns of clickable tail down to 15,
+from 22 at the previous 1 and 24 at 0.7. (Those two never reconciled with
+the 12.5px this note used to quote, for the same reason — that was the
+limit as well, and 8.6px was what actually moved.) **The gate
 makes that a worst case rather than the standing cost**: the photo doesn't
 lean until it has been pointed at, so reaching straight for the tail from
 outside the frame still finds all 31 columns, and 15 is what's left with

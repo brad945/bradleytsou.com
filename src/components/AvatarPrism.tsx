@@ -63,7 +63,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  * *past* edge-on and going behind the photo, where there is genuinely
  * nothing to see. So the walls draw at `max(u, WALL_MIN)`: each one thins to
  * nothing and stops there, while the face keeps travelling on the true `u`,
- * which is what leaves the base pinned. Measured across a sweep in all eight
+ * which is what leaves the base pinned. Strictly the *opposite* lateral face
+ * comes into view as that happens — about 1.5px of it at the worst point —
+ * and it isn't drawn, because there are two pseudo-elements and both are
+ * spoken for. A 1.5px sliver is not worth more DOM. Measured across a sweep in all eight
  * directions, the base's right edge is 400.0 and its bottom 343.0 at every
  * single pointer position, exactly as before.
  *
@@ -74,8 +77,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  * the way out rather than the look: a release interpolates each wall's angle
  * and scale componentwise, and a list passing through `skewY(90deg)` has an
  * infinite shear in it. Unclamped, the crossing is real and narrow — it
- * lands at `scaleX` 0.005, and a 38-frame sample of the release never hit
- * it. A window you miss 38 times is still a window, and this is the page
+ * lands at `scaleX` 0.005, and the release I sampled didn't come down on
+ * it — though only about eight of those frames fell inside the 260ms
+ * transition at all, so that is not much of a reassurance. This is the page
  * where that class of thing was called "extremely glitchy".
  *
  * ## It waits to be pointed at
@@ -95,9 +99,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  * he called "extremely glitchy" the first time round. `ENTER_MS` is the
  * ease-in, run in JS because that is where the rest of the tracking is. At
  * `TRAVEL` 2 it holds the worst entry frame to 4.5px, measured on a pointer
- * teleported onto the frame's edge — against the ~17px that landing full
- * travel in one frame would be, and the 1.4px it managed when the travel was
- * half this. It is the same 160ms doing more work, not a knob that was
+ * teleported onto the frame's edge — against the ~15px that landing it in
+ * one frame would be, scaled from the 8.4px measured back when the travel
+ * was half this, where the ramp held it to 1.4px. It is the same 160ms doing more work, not a knob that was
  * retuned.
  *
  * ## No transition while it's following
@@ -160,11 +164,16 @@ const WALL_MIN = 0.02;
  *   furthest painted pixel to 401.7. The text starts at 410, so there are
  *   8px in hand — a real margin now rather than the 10px constant it used to
  *   be, and worth re-measuring rather than assuming on the next change here.
- * - **The photo travels `(RISE + TRAVEL) x depth` toward the top-left**,
- *   22.5px at 2, and that is how much of Exy's tail it covers on the way
- *   past. This is the real cost, and the one to re-measure on every change to
- *   either knob: 15 columns of the 31 the strip has at rest, down from 22 at
- *   1 and 24 at 0.7. It is a **worst case** rather than the standing cost,
+ * - **The photo travels toward the top-left**, and that is how much of Exy's
+ *   tail it covers on the way past. `(RISE + TRAVEL) x depth` is 22.5px per
+ *   axis, but that is the limit rather than the number: it needs `k · dir`
+ *   at 1, which is the thing the paragraph below says can't happen.
+ *   **Measured, the photo moves 16.1px on x** — 21.9px as a diagonal, with
+ *   both axes near their own maximum. The x figure is the one that matters
+ *   here, and it is the real cost to re-measure on every change to either
+ *   knob: 15 columns left of the 31 the strip has at rest, down from 22 at 1
+ *   and 24 at 0.7. (Those two never reconciled with the old "12.5px" for the
+ *   same reason — it was the limit too, and 8.6px was what actually moved.) It is a **worst case** rather than the standing cost,
  *   and the gate is why — the photo doesn't lean until it has been pointed
  *   at, so someone reaching straight for the tail from outside the frame
  *   still has all 31. 15 is what's left with the pointer already on the photo
