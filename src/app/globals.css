@@ -555,18 +555,28 @@
    * foreshortened, and this stays an instance of the projection argument
    * rather than an exception to it.
    *
-   * ## The four properties
+   * ## The six properties
    *
    * `--ux` / `--uy` are the depth vector in units of `--depth` — the offset
-   * from the moved face to the pinned base. `--sa` / `--fa` are the angles
-   * the two walls shear at. The face's own translate is set inline by the
-   * component, because it is the element and doesn't need a property.
+   * from the moved face to the pinned base. `--wx` / `--wy` are what the
+   * walls are actually scaled by, which is the same thing floored just above
+   * zero. `--sa` / `--fa` are the angles the two walls shear at. The face's
+   * own translate is set inline by the component, because it is the element
+   * and doesn't need a property.
    *
-   *   right wall  skewY(sa) scaleX(ux)    sa = atan(uy / ux)
-   *   underside   skewX(fa) scaleY(uy)    fa = atan(ux / uy)
+   *   right wall  skewY(sa) scaleX(wx)    sa = atan(uy / wx)
+   *   underside   skewX(fa) scaleY(wy)    fa = atan(ux / wy)
    *
    * At `1, 1, 45deg, 45deg` those *are* `skewY(45deg)` and `skewX(45deg)`,
    * so a resting frame is drawn exactly as every other box on the page is.
+   *
+   * **Six properties rather than four, because the depth vector now goes
+   * negative and the walls mustn't.** At full lean the photo travels further
+   * than the depth, which puts the lateral face past edge-on and *behind*
+   * it; `--wx` / `--wy` stop there instead of following `u` through zero and
+   * drawing a wall inside out across the photo. Each angle takes the other
+   * axis's true value against its own clamped one, so a collapsed wall still
+   * meets the base on the axis it hasn't collapsed along.
    *
    * **Written as skew-then-scale rather than as one `matrix()`, and that is
    * not cosmetic.** Two `matrix()` values interpolate by decomposition — the
@@ -577,9 +587,11 @@
    * of this did. Two lists of the *same* functions interpolate componentwise
    * instead, which is both correct and cheap.
    *
-   * Both scale factors stay positive by construction (see
-   * `AvatarPrism.tsx`); a negative one would fold a wall back over the face
-   * it grew from.
+   * Both scale factors stay positive because `AvatarPrism.tsx` floors them;
+   * a negative one would fold a wall back over the face it grew from. The
+   * clamp also keeps both angles clear of 90deg, which is what the release
+   * needs — the two transform lists interpolate componentwise, and one
+   * passing through `skewY(90deg)` has an infinite shear in it.
    *
    * The class is added by the component once it has decided to track, so with
    * no JS, on a touch screen or under `prefers-reduced-motion` it never lands
@@ -588,16 +600,18 @@
   .solid-track {
     --ux: 1;
     --uy: 1;
+    --wx: 1;
+    --wy: 1;
     --sa: 45deg;
     --fa: 45deg;
   }
 
   .solid-track::before {
-    transform: skewY(var(--sa)) scaleX(var(--ux));
+    transform: skewY(var(--sa)) scaleX(var(--wx));
   }
 
   .solid-track::after {
-    transform: skewX(var(--fa)) scaleY(var(--uy));
+    transform: skewX(var(--fa)) scaleY(var(--wy));
   }
 
   /*

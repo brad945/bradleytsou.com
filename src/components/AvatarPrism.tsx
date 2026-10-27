@@ -42,20 +42,41 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  * this stays an instance of the projection argument the solid system rests on
  * rather than an exception to it.
  *
- * ## What it writes, and why nothing can fold
+ * ## What it writes, and why nothing folds
  *
  * `--ux` / `--uy` are the offset from the moved face to the pinned base, in
- * units of `--depth`; `--sa` / `--fa` are the angles the walls shear at; and
- * the face's own translate is derived from `--ux` / `--uy` rather than being
- * a second opinion about the same geometry — it is exactly
- * `(1 - u) · depth`, which is what keeps the base still. See `.solid-track`
- * in globals.css for the two wall transforms.
+ * units of `--depth`; `--wx` / `--wy` are what the walls are scaled by;
+ * `--sa` / `--fa` are the angles they shear at; and the face's own translate
+ * is derived from `--ux` / `--uy` rather than being a second opinion about
+ * the same geometry — it is exactly `(1 - u) · depth`, which is what keeps
+ * the base still. See `.solid-track` in globals.css for the two wall
+ * transforms.
  *
- * Both scale factors have to stay positive: the right wall starts at the
- * face's right edge and the underside at its bottom edge, so a negative one
- * folds a wall back over the face it grew from. `RISE` and `TRAVEL` below are
- * fractions of the depth, bounded so that can't happen — `u` runs 0.25 to
- * 2.25 and never reaches zero.
+ * **The depth vector goes negative at full lean now, and the walls must
+ * not.** The right wall starts at the face's right edge and the underside at
+ * its bottom edge, so a negative scale folds one back over the face it grew
+ * from. At `TRAVEL` 1 that couldn't happen — the shallow wall bottomed out
+ * at a quarter of the depth — and at 2 it can: measured, the worst point on
+ * the page takes `ux` to -0.148, about 22px to the right of the frame.
+ *
+ * Negative isn't a flaw in the model, though. It is the lateral face turning
+ * *past* edge-on and going behind the photo, where there is genuinely
+ * nothing to see. So the walls draw at `max(u, WALL_MIN)`: each one thins to
+ * nothing and stops there, while the face keeps travelling on the true `u`,
+ * which is what leaves the base pinned. Measured across a sweep in all eight
+ * directions, the base's right edge is 400.0 and its bottom 343.0 at every
+ * single pointer position, exactly as before.
+ *
+ * `--sa` / `--fa` take the *other* axis's true value against their own
+ * clamped one — `atan2(uy, wx)` and `atan2(ux, wy)` — so a collapsed wall
+ * still meets the base on the axis it hasn't collapsed along, and both
+ * angles stay clear of 90° (measured peak 89.55°). That last part is about
+ * the way out rather than the look: a release interpolates each wall's angle
+ * and scale componentwise, and a list passing through `skewY(90deg)` has an
+ * infinite shear in it. Unclamped, the crossing is real and narrow — it
+ * lands at `scaleX` 0.005, and a 38-frame sample of the release never hit
+ * it. A window you miss 38 times is still a window, and this is the page
+ * where that class of thing was called "extremely glitchy".
  *
  * ## It waits to be pointed at
  *
@@ -68,12 +89,16 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  * it settles back and needs another hover.
  *
  * **Arming has to ease in.** `k` is 1 the instant the pointer is on the box,
- * so without a ramp the photo lands on ~9px of travel in the single frame the
- * pointer crosses an edge — and `--solid-ms` is 0ms while it tracks, so there
+ * so without a ramp the photo lands on most of its travel in the single frame
+ * the pointer crosses an edge — and `--solid-ms` is 0ms while it tracks, so there
  * is no transition to round that off. Which is exactly the single-frame jump
  * he called "extremely glitchy" the first time round. `ENTER_MS` is the
- * ease-in, run in JS because that is where the rest of the tracking is;
- * measured, it turns an 8.4px step into no more than 1.4px in any one frame.
+ * ease-in, run in JS because that is where the rest of the tracking is. At
+ * `TRAVEL` 2 it holds the worst entry frame to 4.5px, measured on a pointer
+ * teleported onto the frame's edge — against the ~17px that landing full
+ * travel in one frame would be, and the 1.4px it managed when the travel was
+ * half this. It is the same 160ms doing more work, not a knob that was
+ * retuned.
  *
  * ## No transition while it's following
  *
@@ -108,38 +133,52 @@ const ENTER_MS = 160;
  */
 const RISE = 0.25;
 /**
+ * The thinnest a wall is allowed to get, as a fraction of `--depth`.
+ *
+ * 0.02 x 10px = 0.2px, which is nothing to look at and is the point: it is a
+ * floor to stop a scale going negative, not a visible wall. It can't be 0 —
+ * `--sa` is `atan2(uy, wx)`, and a zero `wx` makes that exactly 90deg, which
+ * is the infinite shear the clamp exists to stay away from.
+ */
+const WALL_MIN = 0.02;
+/**
  * How far the photo shifts toward the pointer, as a fraction of `--depth`.
  *
- * Raised twice, both times by Bradley — 0.5 to 0.7 for "a bit more", then 0.7
- * to 1 by name: "change .7 TO 1 for the 'following scale' multiplyer".
+ * Raised three times, all three by Bradley — 0.5 to 0.7 for "a bit more",
+ * then 0.7 to 1 by name ("change .7 TO 1 for the 'following scale'
+ * multiplyer"), then doubled: "make the multiplier/cursor following thing
+ * for the pfp times 2".
  *
  * Two things bound it, and only one of them is what you'd expect:
  *
- * - **Neither number can reach the bio text beside the frame**, and that
- *   isn't a coincidence to be re-checked — it's the pinned base. The right
- *   wall runs from the face's right edge to the base's right edge, and the
- *   face moves by exactly `(1 - u) · depth`, so the wall's outer edge lands
- *   on `frame_right + depth` for *every* value of `u`. Measured by sweeping
- *   the pointer right round the frame: the furthest it ever reaches is
- *   x=400.0, every time, against text at x=410. An earlier version of this
- *   comment claimed the sum of these two was capped at 1.9 by that 20px gap.
- *   It isn't; the gap is a constant 10px and the ceiling was imaginary.
+ * - **It still can't reach the bio text beside the frame**, but the reason
+ *   is no longer that one number is constant. The right wall's outer edge
+ *   lands on `frame_right + depth` — x=400.0 — for every `u` the wall
+ *   actually draws at, because the face moves by exactly `(1 - u) · depth`.
+ *   Past edge-on that wall is gone and the **face itself** is the rightmost
+ *   thing: measured, x=401.5, with the 0.2px of floored wall taking the
+ *   furthest painted pixel to 401.7. The text starts at 410, so there are
+ *   8px in hand — a real margin now rather than the 10px constant it used to
+ *   be, and worth re-measuring rather than assuming on the next change here.
  * - **The photo travels `(RISE + TRAVEL) x depth` toward the top-left**,
- *   12.5px at 1, and that is how much of Exy's tail it covers on the way
+ *   22.5px at 2, and that is how much of Exy's tail it covers on the way
  *   past. This is the real cost, and the one to re-measure on every change to
- *   either knob: 22 columns of the 31 the strip has at rest, down from 24 at
- *   0.7. It is a **worst case** now rather than the standing cost, and the
- *   gate is why — the photo doesn't lean until it has been pointed at, so
- *   someone reaching straight for the tail from outside the frame still has
- *   all 31. 22 is what's left with the pointer already on the photo and
- *   dragged toward the tail, which is also how it was measured.
+ *   either knob: 15 columns of the 31 the strip has at rest, down from 22 at
+ *   1 and 24 at 0.7. It is a **worst case** rather than the standing cost,
+ *   and the gate is why — the photo doesn't lean until it has been pointed
+ *   at, so someone reaching straight for the tail from outside the frame
+ *   still has all 31. 15 is what's left with the pointer already on the photo
+ *   and dragged toward the tail, which is also how it was measured.
  *
- * The hard ceiling is `1 + RISE - TRAVEL > 0`, i.e. 1.25, since a negative
- * scale folds a wall back over its own face. At 1 the shallow wall is already
- * down to 0.25 x depth — 2.5px — so most of what was left is spent, and this
- * is not a knob with much more in it.
+ * **The old hard ceiling was arithmetic, not a measurement, and it was
+ * wrong.** `1 + RISE - TRAVEL > 0` — 1.25 — assumed `k · dir` could reach 1.
+ * It can't: `dir` saturates 60px outside the frame, where `near` is already
+ * down to 0.43, and the product peaks at about 0.69 some 20px out. So 2
+ * takes `ux` to -0.148 rather than to the -0.75 that formula predicts, and
+ * `WALL_MIN` owns the constraint now rather than this knob. What is left to
+ * watch is the gap to the bio text and the tail, both above.
  */
-const TRAVEL = 1;
+const TRAVEL = 2;
 
 /** 0 at the edge of reach, 1 against the frame, eased at both ends. */
 function smoothstep(t: number) {
@@ -195,6 +234,8 @@ export default function AvatarPrism({
        */
       frame.style.removeProperty("--ux");
       frame.style.removeProperty("--uy");
+      frame.style.removeProperty("--wx");
+      frame.style.removeProperty("--wy");
       frame.style.removeProperty("--sa");
       frame.style.removeProperty("--fa");
       frame.style.removeProperty("transform");
@@ -276,6 +317,14 @@ export default function AvatarPrism({
        */
       const ux = 1 + k * (RISE - TRAVEL * dirX);
       const uy = 1 + k * (RISE - TRAVEL * dirY);
+      /*
+       * What the walls draw at, which stops where the depth vector doesn't.
+       * Past edge-on the lateral face is behind the photo and there is
+       * nothing to see; past *that* a negative scale would turn it inside
+       * out and paint it over the photo instead. See the note at the top.
+       */
+      const wx = Math.max(ux, WALL_MIN);
+      const wy = Math.max(uy, WALL_MIN);
 
       if (resting) {
         resting = false;
@@ -293,14 +342,21 @@ export default function AvatarPrism({
 
       frame.style.setProperty("--ux", ux.toFixed(4));
       frame.style.setProperty("--uy", uy.toFixed(4));
-      /* Each wall shears along the same face-to-base axis. */
+      frame.style.setProperty("--wx", wx.toFixed(4));
+      frame.style.setProperty("--wy", wy.toFixed(4));
+      /*
+       * Each wall shears along the same face-to-base axis — but against the
+       * *other* axis's true value and its own clamped one, so a wall that
+       * has collapsed still meets the base on the axis it hasn't collapsed
+       * along. `wx · tan(sa)` is `uy` either way.
+       */
       frame.style.setProperty(
         "--sa",
-        `${((Math.atan2(uy, ux) * 180) / Math.PI).toFixed(3)}deg`,
+        `${((Math.atan2(uy, wx) * 180) / Math.PI).toFixed(3)}deg`,
       );
       frame.style.setProperty(
         "--fa",
-        `${((Math.atan2(ux, uy) * 180) / Math.PI).toFixed(3)}deg`,
+        `${((Math.atan2(ux, wy) * 180) / Math.PI).toFixed(3)}deg`,
       );
       /*
        * And the face. Derived from the same two numbers rather than computed

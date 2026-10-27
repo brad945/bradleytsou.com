@@ -1025,12 +1025,14 @@ scrolling the frame up under a pointer that never moved.
 
 **Arming has to ease in, and that is not optional.** The lean is at full
 strength the instant the pointer is on the box — crossing the left edge is
-worth ~0.9 of the range by itself — so ungated it lands 8.4px of travel in
-the single frame the pointer crosses the edge, with `--solid-ms` at 0ms
+worth ~0.9 of the range by itself — so ungated it lands most of the travel
+in the single frame the pointer crosses the edge, with `--solid-ms` at 0ms
 and therefore nothing to round it off. That is the same single-frame jump
 Bradley called "extremely glitchy" the first time. `ENTER_MS` is a 160ms
-ease, run in JS alongside the rest of the tracking; measured, no frame
-moves the photo more than 1.4px. The ramp also needs its own
+ease, run in JS alongside the rest of the tracking; measured at the current
+travel, no frame moves the photo more than 4.5px, against the ~17px the
+snap would be. (It was 1.4px against 8.4px when the travel was half this —
+the same 160ms doing more work, not a knob that was retuned.) The ramp also needs its own
 `requestAnimationFrame` loop, because someone who points at the photo and
 holds still gets one `pointermove` and then nothing.
 
@@ -1044,10 +1046,26 @@ at. Only the third has them the right way round, and none of the three
 needed a camera after the first.
 
 `AvatarPrism.tsx` writes `--ux` / `--uy` (the face-to-base offset in units
-of `--depth`), `--sa` / `--fa` (the angles the walls shear at), and the
-face's own translate, which is derived from the first two as
-`(1 - u) · depth` rather than computed separately — two expressions of the
-same geometry could drift apart and un-pin the base.
+of `--depth`), `--wx` / `--wy` (what the walls are actually scaled by),
+`--sa` / `--fa` (the angles they shear at), and the face's own translate,
+which is derived from the first pair as `(1 - u) · depth` rather than
+computed separately — two expressions of the same geometry could drift
+apart and un-pin the base.
+
+**`--wx` / `--wy` exist because the depth vector goes negative, and they
+are `max(u, WALL_MIN)`.** At the current travel the photo moves further
+than the depth, which turns a lateral face past edge-on and puts it
+*behind* the photo — measured, `ux` reaches -0.148 about 22px right of the
+frame. Nothing is wrong with that in the model; what is wrong is drawing
+it, since a negative scale folds a wall back over the face it grew from.
+So the wall thins to nothing and stops, while the face keeps travelling on
+the true `u`, which is what leaves the base pinned — 400.0 and 343.0 at
+every pointer position in an eight-direction sweep, exactly as before.
+Each angle takes the other axis's true value against its own clamped one
+(`atan2(uy, wx)`, `atan2(ux, wy)`), so a collapsed wall still meets the
+base on the axis it hasn't collapsed along, and both stay clear of 90° —
+which the release needs, because a transform list interpolating through
+`skewY(90deg)` has an infinite shear in it.
 
 **The walls are `skewY(a) scaleX(u)`, not one `matrix()`, and that is what
 fixed the glitching.** Two `matrix()` values interpolate by decomposition:
@@ -1064,29 +1082,37 @@ interpolation at all — the prism is redrawn against the pointer each frame
 and lags nothing. Letting go restores the 260ms overshoot, so it still
 settles with the same bounce as every other box.
 
-**The walls cannot reach the bio text beside the frame, and that's the
-pinned base rather than a coincidence to re-check.** The right wall runs
-from the face's right edge to the base's right edge, and the face moves by
-exactly `(1 - u) · depth` — so the wall's outer edge lands on
-`frame_right + depth` for every value of `u`. Measured by sweeping the
-pointer right round the frame: furthest reach x=400.0, every time, against
-text at x=410. An earlier version of this note had the two travel knobs
-capped by that 20px gap. They aren't; the gap is a constant 10px and the
-ceiling was imaginary.
+**It still cannot reach the bio text beside the frame, but that is a
+measured margin now rather than a constant.** The right wall runs from the
+face's right edge to the base's right edge, and the face moves by exactly
+`(1 - u) · depth`, so the wall's outer edge lands on `frame_right + depth`
+— x=400.0 — for every `u` it actually draws at. Past edge-on the wall is
+gone and the **face itself** is the rightmost thing: x=401.5, with the
+0.2px of floored wall taking the furthest painted pixel to 401.7, against
+text at x=410. So 8px in hand rather than the 10px constant this used to
+be, and worth re-measuring rather than assuming next time either knob
+moves. (An older version of this note had the two knobs capped by that
+gap. They aren't, and never were.)
 
-So there is exactly one real cost, and it's Exy's tail. The photo travels
-`(RISE + TRAVEL) · depth` toward the top-left — 12.5px at the current
-0.25 / 1 — and covers that much of the strip: 31 columns of clickable tail
-down to 22, measured, from 24 at the previous 0.7. **The gate makes that a
-worst case rather than the standing cost**: the photo doesn't lean until
-it has been pointed at, so reaching straight for the tail from outside the
-frame still finds all 31 columns, and 22 is what's left with the pointer
-already on the photo and dragged that way. **`TRAVEL` is nearly
-spent**: the ceiling is `1 + RISE - TRAVEL > 0`, i.e. 1.25, since a
-negative scale folds a wall back over its own face, and at 1 the shallow
-wall is already down to 2.5px. Bradley set it there by name ("change .7 TO
-1 for the 'following scale' multiplyer"); there isn't another round of this
-to give.
+The other real cost is Exy's tail. The photo travels
+`(RISE + TRAVEL) · depth` toward the top-left — 22.5px at the current
+0.25 / 2 — and covers that much of the strip: 31 columns of clickable tail
+down to 15, measured, from 22 at the previous 1 and 24 at 0.7. **The gate
+makes that a worst case rather than the standing cost**: the photo doesn't
+lean until it has been pointed at, so reaching straight for the tail from
+outside the frame still finds all 31 columns, and 15 is what's left with
+the pointer already on the photo and dragged that way.
+
+**The ceiling this note used to quote was arithmetic rather than a
+measurement, and it was wrong.** `1 + RISE - TRAVEL > 0` — 1.25 — assumes
+`k · dir` can reach 1, and it can't: `dir` saturates 60px outside the
+frame, where `near` is already down to 0.43, and the product peaks around
+0.69 some 20px out. So `TRAVEL` 2 takes `ux` to -0.148 rather than to the
+-0.75 that formula predicts, which is why the clamp above is a 1.5px
+correction and not a redesign. Bradley has set this knob by name three
+times — 0.7, then 1, then "times 2" — and `WALL_MIN` owns the constraint
+now rather than `TRAVEL` itself. What is left to watch on the next round is
+the gap to the bio text and the tail, both above.
 
 The component adds `solid-track` itself, which is the whole fallback — no
 JS, a touch screen or `prefers-reduced-motion` and the class never lands,
