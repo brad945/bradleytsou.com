@@ -49,23 +49,66 @@ const B = [
 ].join(" ");
 
 /**
- * The whole mark as one SVG document, which is what `SVGLoader` parses.
+ * The `t`, and the period with it.
  *
  * `BtMark` draws the `t` as two `<rect>`s and the period as a `<circle>`, and
- * SVGLoader handles both, so they're copied verbatim rather than re-expressed.
+ * SVGLoader handles both, so they're copied verbatim rather than
+ * re-expressed.
+ *
+ * **The dot rides with the `t` rather than being dropped or given a column of
+ * its own.** Splitting a three-glyph mark in two leaves it somewhere, and
+ * `bt.` without its period is a different wordmark — one the favicon, the nav
+ * and the footer would all still be drawing. It sits low and right of the
+ * stem, which is where it sits in the mark.
+ */
+const T = `<rect x="196" y="116" width="127" height="55" />
+  <rect x="226" y="58" width="67" height="223" />
+  <circle cx="365" cy="250" r="42" />`;
+
+/**
+ * The mark as an SVG document, which is what `SVGLoader` parses — whole, or
+ * one half of it.
+ *
+ * The viewBox is the same either way and deliberately so: nothing downstream
+ * reads it, because `ExtrudedMark` centres on the geometry's own bounds. What
+ * it does buy is that the two halves come out at **the same scale as each
+ * other and as the whole mark**, since they're cut from one coordinate system
+ * rather than fitted individually.
  *
  * **This duplicates `BtMark.tsx` and shouldn't stay that way.** If this
  * graduates past a prototype the path data moves to one module both import;
  * it's duplicated now so an experiment touches nothing that ships.
  */
-const MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 292">
-  <path d="${B}" />
-  <rect x="196" y="116" width="127" height="55" />
-  <rect x="226" y="58" width="67" height="223" />
-  <circle cx="365" cy="250" r="42" />
+function markSvg(glyph?: Glyph) {
+  const body =
+    glyph === "b"
+      ? `<path d="${B}" />`
+      : glyph === "t"
+        ? T
+        : `<path d="${B}" />
+  ${T}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 292">
+  ${body}
 </svg>`;
+}
 
-const MARK_URL = `data:image/svg+xml;utf8,${encodeURIComponent(MARK_SVG)}`;
+/** Which half of the mark to extrude. Omitted means all of it. */
+export type Glyph = "b" | "t";
+
+/**
+ * How far `follow` turns the model at full cursor deflection, in radians.
+ *
+ * **Raised at Bradley's request when the mark was split in two** — "increase
+ * the 'mouse cursor following' for both once u separate them" — from 0.85 and
+ * 0.35, a half again on each. 1.3rad is 74.5°, 0.55 is 31.5°.
+ *
+ * What bounds the yaw is legibility rather than geometry: past about 80° an
+ * extruded letterform is edge-on and reads as a bar, and at 90° it is gone.
+ * The same note under `Spin` is why this mode exists instead of a full turn.
+ * 74.5° is close to that edge on purpose and is as far as it should go.
+ */
+const FOLLOW_YAW = 1.3;
+const FOLLOW_PITCH = 0.55;
 
 /**
  * Spins its children on Y — or rocks them, which for a wordmark is better.
@@ -110,6 +153,16 @@ function Spin({
    * `state.pointer` updates only while the pointer is *over* the canvas, and
    * this one is a narrow strip, so the model would freeze the moment you moved
    * onto the content — which is most of the time.
+   *
+   * **Measuring per canvas is also the whole of why a split mark mirrors for
+   * free**, and it's worth not undoing. Two halves in the two black columns
+   * sit at mirrored x, so `aim.x` for one is the negative of `aim.x` for the
+   * other under a mirrored cursor — measured at 1600 wide, centres 153 and
+   * 1448: a cursor at 800 reads +0.809 / -0.809, at 200 reads +0.059 /
+   * -1.559, and at 1400 the same two numbers swapped. Each half therefore
+   * turns toward the cursor and the pair is symmetric about the page, which
+   * is what "a reflection" means. A `mirror` flag negating one half's yaw was
+   * written first and was exactly wrong: it made both turn the *same* way.
    *
    * Half the viewport is the distance at which it reaches full turn. A ref
    * rather than state because this changes on every move and nothing renders
@@ -166,9 +219,9 @@ function Spin({
        */
       const k = Math.min(1, delta * 4);
       ref.current.rotation.y +=
-        (aim.current.x * 0.85 - ref.current.rotation.y) * k;
+        (aim.current.x * FOLLOW_YAW - ref.current.rotation.y) * k;
       ref.current.rotation.x +=
-        (aim.current.y * 0.35 - ref.current.rotation.x) * k;
+        (aim.current.y * FOLLOW_PITCH - ref.current.rotation.x) * k;
       return;
     }
     t.current += delta * speed;
@@ -208,16 +261,17 @@ function GltfModel({ src }: { src: string }) {
   );
 }
 
-function ExtrudedMark() {
+/** World units per SVG unit. Fixed, not fitted — see `markSvg`. */
+const MARK_SCALE = 0.0115;
+
+function ExtrudedMark({ glyph }: { glyph?: Glyph }) {
   /*
    * `useLoader` would work, but SVGLoader is synchronous on a data: URL and
    * going through Suspense for it buys nothing. Parsing here keeps the whole
    * geometry inside one `useMemo`.
    */
   const geometry = useMemo(() => {
-    const data = new SVGLoader().parse(
-      decodeURIComponent(MARK_URL.split(",")[1]),
-    );
+    const data = new SVGLoader().parse(markSvg(glyph));
     const geos: THREE.ExtrudeGeometry[] = [];
     for (const path of data.paths) {
       /*
@@ -239,16 +293,44 @@ function ExtrudedMark() {
       }
     }
     return geos;
-  }, []);
+  }, [glyph]);
+
+  /*
+   * Where the extruded glyphs actually are, so the group can be hung on their
+   * own centre.
+   *
+   * **Measured rather than written, which it has to be now the mark can be
+   * cut in half.** This was `position={[-2.35, 1.68, -0.3]}` — the centre of
+   * the 408x292 viewBox, times the scale — and that is right for the whole
+   * mark and wrong for either half of it, since the `b` fills the left of
+   * that box and the `t` the right. A hardcoded offset would leave each half
+   * orbiting a point out in space beside it. These come out at the old
+   * numbers for the whole mark, which is how the swap was checked.
+   */
+  const centre = useMemo(() => {
+    const box = new THREE.Box3();
+    for (const geo of geometry) {
+      geo.computeBoundingBox();
+      if (geo.boundingBox) box.union(geo.boundingBox);
+    }
+    return box.getCenter(new THREE.Vector3());
+  }, [geometry]);
 
   /*
    * SVG's y axis points down and three.js's points up, so the mark arrives
-   * upside down — hence the negative y scale rather than a rotation. The
-   * position then centres the 408x292 viewBox, whose origin is its top left;
-   * without it the mark orbits a corner instead of spinning in place.
+   * upside down — hence the negative y scale rather than a rotation. That is
+   * also why the y offset is positive where the other two are negative: the
+   * flip has already happened by the time the position applies.
    */
   return (
-    <group scale={[0.0115, -0.0115, 0.0115]} position={[-2.35, 1.68, -0.3]}>
+    <group
+      scale={[MARK_SCALE, -MARK_SCALE, MARK_SCALE]}
+      position={[
+        -centre.x * MARK_SCALE,
+        centre.y * MARK_SCALE,
+        -centre.z * MARK_SCALE,
+      ]}
+    >
       {geometry.map((geo, i) => (
         <mesh key={i} geometry={geo} castShadow receiveShadow>
           {/*
@@ -271,12 +353,18 @@ function ExtrudedMark() {
 export default function Model3D({
   src,
   mode,
+  glyph,
   zoom = 1,
   onReady,
   className,
 }: {
   /** A `.glb` in `public/`. Omit to spin the extruded `bt.` mark instead. */
   src?: string;
+  /**
+   * Extrude one half of the mark instead of all of it — `"b"` or `"t"`, the
+   * latter carrying the period. Ignored when `src` is set.
+   */
+  glyph?: Glyph;
   /**
    * `"rock"` turns and returns, `"spin"` is the reference site's full turn,
    * `"follow"` tracks the cursor. See `Spin`.
@@ -341,7 +429,7 @@ export default function Model3D({
           */}
           <Float speed={1.4} rotationIntensity={0.15} floatIntensity={0.4}>
             <Spin mode={mode}>
-              {src ? <GltfModel src={src} /> : <ExtrudedMark />}
+              {src ? <GltfModel src={src} /> : <ExtrudedMark glyph={glyph} />}
             </Spin>
           </Float>
 

@@ -5,11 +5,46 @@ import { useEffect, useState } from "react";
 import { profile } from "@/lib/profile-data";
 
 /**
- * The 3D mark, sliding out from behind the profile block into the left column.
+ * The 3D mark, cut in half and sliding out from behind the profile block into
+ * *both* columns — the `b` into the left one, the `t.` into the right.
  *
  * Second half of the gesture `NavMark` starts: the flat glyphs fall out of the
  * nav and disappear behind the profile column, and half a second later the
  * same mark comes back out of that column in three dimensions.
+ *
+ * ## Why two halves rather than one mark
+ *
+ * Bradley's: "instead of popping out from behind the main center column,
+ * separate the characters and have just 'b' on the left but then 't' on the
+ * right (both of them pop out from behind the middle column at the same time
+ * and have t essentially be a reflection of b in terms of how it follows the
+ * mouse cursor)."
+ *
+ * So the column isn't a thing the mark comes *out of* on one side any more —
+ * it's the thing the mark was hiding *behind*, and it breaks either way. The
+ * three parts that make that read:
+ *
+ * - **They leave together.** Each half is its own `<Canvas>` and WebGL takes
+ *   as long as it takes, so the two `onReady`s land whenever they land.
+ *   Opening on the first would start one half moving while the other was
+ *   still a blank box — so both wait for both. See `ready` below.
+ * - **They leave in opposite directions**, each from under the column edge it
+ *   is parked behind: the left half closed is `translate-x-full` and the
+ *   right half `-translate-x-full`.
+ * - **The cursor-following mirrors itself**, which is the part that needed
+ *   no code. `Spin` measures the pointer from each canvas's own centre, so
+ *   two halves at mirrored x respond antisymmetrically on their own: each
+ *   turns toward the cursor and the pair is symmetric about the page. A flag
+ *   negating the right half's yaw was written first and was exactly wrong —
+ *   it made both halves turn the same way, which is a copy rather than a
+ *   reflection. Nothing flips the glyph either; the `t` is a `t`.
+ *
+ * Two canvases is two WebGL contexts and two `<Environment>`s, and that is
+ * the knowing cost. The map is cached by URL, so the second is a cache hit
+ * rather than a second megabyte; the alternative — one canvas spanning the
+ * viewport with a mesh at each end — would put a transparent canvas across
+ * the profile column, which is the pointer-events problem the note below
+ * already describes, on purpose, at full width.
  *
  * ## Why it can't just stay behind everything
  *
@@ -42,12 +77,13 @@ import { profile } from "@/lib/profile-data";
  *
  * ## Why it is gated on width
  *
- * The thing it slides into is the black surround, which is
- * `(100vw - 990px) / 2` wide — 205px at 1400, and nothing at all below about
- * 1050 where the column fills the viewport. Under `MIN_VW` there is nowhere
- * for it to go, so the fall still happens and this doesn't. That's a real
- * limitation of the idea rather than of the implementation: the effect needs
- * a wide window.
+ * What they slide into is the black surround, which is
+ * `(100vw - 990px) / 2` wide on each side — 205px at 1400, and nothing at all
+ * below about 1050 where the column fills the viewport. Under `MIN_VW` there
+ * is nowhere for them to go, so the fall still happens and this doesn't.
+ * That's a real limitation of the idea rather than of the implementation: the
+ * effect needs a wide window. The two surrounds are the same width by
+ * construction, so one threshold still covers both.
  *
  * ## Why three.js isn't in the bundle
  *
@@ -74,6 +110,109 @@ const Model3D = dynamic(() => import("@/components/Model3D"), { ssr: false });
  */
 const MIN_VW = 1180;
 
+/**
+ * One half of the mark, in one of the two black columns.
+ *
+ * `open` is owned by the parent so both halves move on the same tick; the
+ * settle is owned here, because it's about this box's own transition ending.
+ */
+function Half({
+  side,
+  open,
+  onReady,
+}: {
+  side: "left" | "right";
+  open: boolean;
+  onReady: () => void;
+}) {
+  const right = side === "right";
+  /*
+   * Raised above the content once it has arrived — see the note on the
+   * wrapper below. Separate from `open` because the two happen 700ms apart.
+   */
+  const [settled, setSettled] = useState(false);
+
+  return (
+    /*
+      Pinned to one edge of the viewport and vertically centred on the profile
+      block. `pointer-events-none` on the frame so the black surround stays
+      inert — only the model itself takes the pointer, which is what makes
+      dragging it work without turning the whole column into a target.
+
+      The two sides are written out rather than built, because Tailwind's
+      scanner reads this file as text and can't see a class name assembled at
+      runtime. Both arms of each ternary are literal for that reason.
+    */
+    <div
+      aria-hidden
+      className={`pointer-events-none fixed inset-y-0 hidden w-[calc((100vw-990px)/2)] items-center justify-center xl:flex ${
+        right ? "right-0" : "left-0"
+      } ${settled ? "z-10" : "-z-10"}`}
+    >
+      {/*
+        The slide. The box is exactly the black column's width, so the model
+        sits centred in it — an earlier version overlapped the profile column
+        by 120px to guarantee the closed position was hidden, and the cost was
+        that the open position was 60px off-centre and bleeding under the
+        panel. It doesn't need the overlap: a full-width translate lands it
+        exactly on the profile column's near edge and therefore under it.
+
+        **Height is set to keep the canvas from being too portrait.** The
+        camera's field of view is vertical, so a tall narrow canvas fits the
+        model to its height and then runs out of width — at 62vh the mark was
+        cut off by the edge of the screen. 40vh is close enough to the
+        column's own proportions that it fits inside it. A single glyph is
+        about half the width of the whole mark and very nearly its full
+        height, so the fit is governed by the same number it always was and
+        the zoom didn't need re-tuning.
+
+        `duration-700` with a back-eased curve: it should arrive like
+        something pushed out rather than something faded in.
+      */}
+      {/*
+        An anchor, because the flat mark it replaced was one and is now at the
+        bottom of the page. This is the nav's home link for as long as the
+        gesture is running — same `/#top` target, same reason: `top` is a
+        fragment the spec resolves to the document top, so it needs no element
+        and lands without the ~56px jolt `#profile` caused.
+
+        Escape still dismisses and puts the flat mark back, so the link isn't
+        the only way out.
+      */}
+      <a
+        href="/#top"
+        aria-label={`${profile.name} — home`}
+        onTransitionEnd={() => setSettled(true)}
+        className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          open
+            ? "translate-x-0"
+            : right
+              ? "-translate-x-full"
+              : "translate-x-full"
+        }`}
+      >
+        {/*
+          `zoom` pulls the camera back rather than scaling the element:
+          scaling would blur the canvas, since it renders at its own pixel
+          size.
+
+          **No mirroring flag, and that isn't an omission.** `Spin` measures
+          the cursor from each canvas's own centre, so two halves at mirrored
+          x already turn symmetrically — each toward the cursor. See the note
+          there; negating one half's yaw was tried and did the opposite.
+        */}
+        <Model3D
+          mode="follow"
+          glyph={right ? "t" : "b"}
+          zoom={1.35}
+          onReady={onReady}
+          className="h-full w-full"
+        />
+      </a>
+    </div>
+  );
+}
+
 export default function MarkReveal() {
   const [state, setState] = useState<"idle" | "out">("idle");
   /*
@@ -91,12 +230,15 @@ export default function MarkReveal() {
    * `Model3D` reports `onReady` once it has actually rendered, and the slide
    * starts from there. Slower to begin, but it's the model that moves.
    */
-  const [open, setOpen] = useState(false);
   /*
-   * Raised above the content once it has arrived — see the note on the wrapper
-   * below. Separate from `open` because the two happen 700ms apart.
+   * How many of the two halves have drawn a frame, and **both have to before
+   * either moves.** Each is its own canvas, so WebGL setup finishes whenever
+   * it finishes; opening on the first `onReady` would send one half out while
+   * the other was still an empty box, and "both of them pop out from behind
+   * the middle column at the same time" is the request.
    */
-  const [settled, setSettled] = useState(false);
+  const [ready, setReady] = useState(0);
+  const open = ready >= 2;
 
   useEffect(() => {
     const reveal = () => {
@@ -106,11 +248,9 @@ export default function MarkReveal() {
     return () => window.removeEventListener("bt:reveal", reveal);
   }, []);
 
+  /* Back to idle unmounts both halves, so only the count needs resetting. */
   useEffect(() => {
-    if (state !== "out") {
-      setOpen(false);
-      setSettled(false);
-    }
+    if (state !== "out") setReady(0);
   }, [state]);
 
   /*
@@ -132,66 +272,12 @@ export default function MarkReveal() {
 
   if (state === "idle") return null;
 
+  const onReady = () => setReady((n) => n + 1);
+
   return (
-    /*
-      Pinned to the left half of the viewport and vertically centred on the
-      profile block. `pointer-events-none` on the frame so the black surround
-      stays inert — only the model itself takes the pointer, which is what
-      makes dragging it work without turning the whole column into a target.
-    */
-    <div
-      aria-hidden
-      className={`pointer-events-none fixed inset-y-0 left-0 hidden w-[calc((100vw-990px)/2)] items-center justify-center xl:flex ${
-        settled ? "z-10" : "-z-10"
-      }`}
-    >
-      {/*
-        The slide. The box is exactly the black column's width, so the model
-        sits centred in it — an earlier version overlapped the profile column
-        by 120px to guarantee the closed position was hidden, and the cost was
-        that the open position was 60px off-centre and bleeding under the
-        panel. It doesn't need the overlap: `translate-x-full` moves it by its
-        own width, which lands it exactly on the profile column's left edge and
-        therefore under it.
-
-        **Height is set to keep the canvas from being too portrait.** The
-        camera's field of view is vertical, so a tall narrow canvas fits the
-        model to its height and then runs out of width — at 62vh the mark was
-        cut off by the left edge of the screen. 40vh is close enough to the
-        column's own proportions that it fits inside it.
-
-        `duration-700` with a back-eased curve: it should arrive like something
-        pushed out rather than something faded in.
-      */}
-      {/*
-        An anchor, because the flat mark it replaced was one and is now at the
-        bottom of the page. This is the nav's home link for as long as the
-        gesture is running — same `/#top` target, same reason: `top` is a
-        fragment the spec resolves to the document top, so it needs no element
-        and lands without the ~56px jolt `#profile` caused.
-
-        Escape still dismisses and puts the flat mark back, so the link isn't
-        the only way out.
-      */}
-      <a
-        href="/#top"
-        aria-label={`${profile.name} — home`}
-        onTransitionEnd={() => setSettled(true)}
-        className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        {/*
-          `zoom` pulls the camera back rather than scaling the element: scaling
-          would blur the canvas, since it renders at its own pixel size.
-        */}
-        <Model3D
-          mode="follow"
-          zoom={1.35}
-          onReady={() => setOpen(true)}
-          className="h-full w-full"
-        />
-      </a>
-    </div>
+    <>
+      <Half side="left" open={open} onReady={onReady} />
+      <Half side="right" open={open} onReady={onReady} />
+    </>
   );
 }
