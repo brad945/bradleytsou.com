@@ -5,6 +5,7 @@ import AnimatedFavicon from "@/components/AnimatedFavicon";
 import MarkReveal from "@/components/MarkReveal";
 import { PlayModeProvider } from "@/components/PlayMode";
 import { profile, siteOrigin, tabName } from "@/lib/profile-data";
+import { openGraphFor } from "@/lib/seo";
 
 /**
  * Steam's own face is Motiva Sans, and the Tailwind stacks now name it first
@@ -99,13 +100,14 @@ export const metadata: Metadata = {
   title: tabName,
   description: profile.tagline,
   alternates: { canonical: "/" },
-  openGraph: {
-    title: profile.name,
-    description: profile.tagline,
-    type: "profile",
-    url: siteOrigin,
-    siteName: profile.name,
-  },
+  /*
+   * Built rather than written out, because a child route's `openGraph`
+   * replaces this object wholesale instead of merging into it — see
+   * `openGraphFor`. This used to hardcode `url: siteOrigin`, which every
+   * other page then inherited, so sharing `/about` or `/play` anywhere that
+   * reads Open Graph announced the homepage.
+   */
+  openGraph: openGraphFor("/"),
   twitter: { card: "summary_large_image" },
 };
 

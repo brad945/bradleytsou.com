@@ -28,6 +28,7 @@ import {
   getLastPush,
   getDiscussionComments,
 } from "@/lib/github";
+import { jsonLdScript, profileJsonLd } from "@/lib/seo";
 import {
   githubUsername,
   featuredRepos,
@@ -86,6 +87,30 @@ export default async function Home() {
 
   return (
     <>
+      {/*
+        Structured data: `ProfilePage` wrapping a `Person`, so a search engine
+        can resolve "Bradley Tsou" as an entity and attach the GitHub,
+        LinkedIn, Devpost and Steam accounts to the same one. Every field is
+        derived from `profile-data` — see `lib/seo.ts`, which is also why
+        there is nothing to keep in sync here.
+
+        **Only when the cover is down.** With `privacyScreen` on, the grid
+        below is replaced by a hoarding, and telling a crawler this is a
+        profile page would be describing content the page isn't serving. It
+        is the same call the DevEval block and Reactions make: say nothing
+        rather than claim something.
+
+        `<script>` in the body rather than the head on purpose — JSON-LD is
+        valid in either, and this is the one page that has it, so it belongs
+        with the page rather than in a layout that renders on all three.
+      */}
+      {!privacyScreen && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(profileJsonLd()) }}
+        />
+      )}
+
       <SiteNav stats={snapshot.stats} />
 
       {/*

@@ -14,6 +14,7 @@ import {
   steamId64,
   tabName,
 } from "@/lib/profile-data";
+import { openGraphFor } from "@/lib/seo";
 
 /**
  * `/about` — the other half of the profile.
@@ -39,10 +40,15 @@ import {
  */
 export const revalidate = 300;
 
+const description = "What I actually do, like and play.";
+
 export const metadata: Metadata = {
   title: `About — ${tabName}`,
-  description: "What I actually do, like and play.",
+  description,
   alternates: { canonical: "/about" },
+  /* Its own, or it inherits the root's — which named the homepage as this
+     page's canonical Open Graph URL. See `openGraphFor`. */
+  openGraph: openGraphFor("/about", description),
 };
 
 export default async function About() {

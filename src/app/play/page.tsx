@@ -6,6 +6,7 @@ import PlayGate from "@/components/PlayGate";
 import SiteNav from "@/components/SiteNav";
 import { getGitHubSnapshot } from "@/lib/github";
 import { githubUsername, profile, tabName } from "@/lib/profile-data";
+import { openGraphFor } from "@/lib/seo";
 
 /**
  * `/play` — deliberately empty for now.
@@ -50,6 +51,11 @@ const Model3D = dynamic(() => import("@/components/Model3D"), {
 export const metadata: Metadata = {
   title: `Play — ${tabName}`,
   alternates: { canonical: "/play" },
+  /* No `description` of its own: there's nothing on this page to describe
+     yet, and the root's tagline is at least true of the site. The Open Graph
+     block still has to be built, or the inherited `url` names the homepage —
+     see `openGraphFor`. */
+  openGraph: openGraphFor("/play"),
 };
 
 export default async function Play() {

@@ -347,13 +347,13 @@ class would stop emitting.
   `href="#"` that silently does nothing is worse than something visibly
   unfinished. Giving an entry an href is the whole change when its section
   lands — and taking it away is the whole change when one isn't ready.
-  **About is greyed out right now**, at Bradley's request: `/about` is
-  built and still routable, but its reviews and inventory are placeholder
-  in the wrong voice, so a live nav item would send visitors to words he
-  didn't write. It's also pulled from `sitemap.ts` for the same reason —
-  a crawler can't see the grey and would have indexed the placeholder
-  text. Both go back in the same commit that gives the page real copy. Targets are written root-relative
-  so they also work from `/play`.
+  **About was greyed out and isn't any more.** While its reviews and
+  inventory were placeholder in the wrong voice, a live nav item would
+  have sent visitors to words Bradley didn't write, so the item was dim
+  *and* the page was out of `sitemap.ts` — a crawler can't see the grey
+  and would have indexed the placeholder text. The placeholder panels are
+  hidden now, so both went back together, which is how they should always
+  move. Targets are written root-relative so they also work from `/play`.
   Right side: the GitHub login, the `$0.21` balance under it, and the
   avatar, all inside one `HoverNote` reading "pulled live from cashapp
   api" — **a joke, not a description**; there is no Cash App call in this
@@ -661,10 +661,13 @@ class would stop emitting.
 - `src/app/icon.tsx`, `opengraph-image.tsx` — the favicon and the 1200x630
   share card, both generated at build time from `profile-data` rather than
   checked in as binaries.
-- `src/app/robots.ts`, `sitemap.ts` — allow-all plus the sitemap. Two
-  URLs, `/` and `/play`; `/about` is deliberately absent while its nav
-  item is greyed out. `lastModified` is deliberately omitted: content changes when
-  Bradley commits, not when Vercel rebuilds.
+- `src/app/robots.ts`, `sitemap.ts` — allow-all plus the sitemap. Three
+  URLs now: `/`, `/about` and `/play`, the last at a low priority because
+  it's deliberately near-empty and shouldn't compete with the profile.
+  `lastModified` is deliberately omitted: content changes when Bradley
+  commits, not when Vercel rebuilds.
+- `src/lib/seo.ts` — the Open Graph block and the structured data. See
+  "SEO" below before touching either.
 - `src/app/page.tsx` — SiteNav, full-width ProfileHeader, then a
   `lg:grid-cols-[2fr_1fr]` split that stacks below `lg`. `max-w-profile`
   is **990px**, not Steam's 940 — widened 25px per side at Bradley's
@@ -816,6 +819,58 @@ subsets was not on offer.
 must match the ones inside the CSS file that HTML links. Worth running
 after any Next upgrade or font change — and note the name hashes change
 whenever the font CSS does, so don't hardcode them anywhere.
+
+## SEO
+
+Three pages, all indexable, all canonicalised, and the rules worth knowing
+before editing any of it:
+
+**Everything in the head is derived from `profile-data`, never written.**
+That's the same rule the visible page follows, and it matters *more* here,
+not less: a crawler is the one audience that can't see the page to check a
+claim against. Add a link to `socials` and it appears in `sameAs`; add a tag
+to a role and it appears in `knowsAbout`. `src/lib/seo.ts` is where both live
+and there is nothing in it to keep in sync by hand.
+
+**A route's `openGraph` replaces its parent's outright — it does not merge.**
+This is the trap that was live: the root layout hardcoded
+`openGraph.url = siteOrigin`, and `/about` and `/play` declared no
+`openGraph` at all, so both inherited it and told every scraper and chat
+preview that they were the homepage. `openGraphFor(path, description?)` is
+the fix — one builder, spread per page, with the `url` relative so
+`metadataBase` resolves it.
+
+**And declaring `openGraph` drops the file-based share card.** Next merges
+`opengraph-image.tsx` into whatever a route resolves to, so the moment those
+two pages declared their own block the image silently vanished from both
+while every other tag still looked right. `openGraphFor` names `images`
+itself, out of `shareCard` in the same file — which is also why
+`opengraph-image.tsx` reads its `alt` / `size` / `contentType` back out of
+`shareCard` rather than stating 1200x630 a second time.
+
+**JSON-LD is on `/` only**, as a `ProfilePage` wrapping a `Person` — Schema's
+own shape for a page *about* someone. `sameAs` is the load-bearing field:
+it's what attaches the GitHub, LinkedIn, Devpost and Steam accounts to the
+same entity as this site. It renders only when `privacyScreen` is off, since
+describing a profile page behind a hoarding would be claiming content the
+page isn't serving. Three fields are deliberately absent and shouldn't be
+"added": `jobTitle` and `alumniOf` have nothing to derive from (`roles` holds
+titles per role, and he's *at* Berkeley rather than an alum), and
+`dateModified` would be a build timestamp, which is the same call
+`sitemap.ts` makes about `lastModified`.
+
+**The `<title>` is `tabName` — "algebradley", not "Bradley Tsou".** That is
+Bradley's call and it's recorded as one, but it is the single biggest SEO
+cost on the site: the title tag carries more weight than anything else for a
+name search, and his name isn't in it. It isn't as bad as it reads — the
+`<h1>`, `og:title` and the JSON-LD all say "Bradley Tsou", and `aliases`
+feeds `alternateName` so the handles are covered too — but if that trade is
+ever revisited, `title` in `layout.tsx` is the whole change.
+
+**What can't be done from here:** verifying the domain in Google Search
+Console and submitting the sitemap, which needs Bradley's own account. If he
+wants the meta-tag method rather than DNS, `verification: { google: "…" }`
+in the layout's metadata is the entire change.
 
 The scale lives as `.t-*` classes in `src/app/globals.css` and is taken
 **from Steam's own `profilev2.css`**, not estimated off screenshots:
