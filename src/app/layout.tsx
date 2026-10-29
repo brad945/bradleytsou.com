@@ -98,7 +98,9 @@ export const metadata: Metadata = {
   // A handle, not the name — see `tabName`. The share card below deliberately
   // keeps the real name, so the two differ on purpose.
   title: tabName,
-  description: profile.tagline,
+  // Not the tagline — see `profile.metaDescription`, which explains why this
+  // is its own field and why Open Graph below keeps the tagline.
+  description: profile.metaDescription,
   alternates: { canonical: "/" },
   /*
    * Built rather than written out, because a child route's `openGraph`

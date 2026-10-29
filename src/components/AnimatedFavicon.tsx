@@ -24,8 +24,11 @@ import { useEffect } from "react";
  *
  * ## The rest
  *
- * - **Needs JS.** The static `/icon` stays the real favicon; this replaces it
- *   after hydration, so JS-off loses nothing.
+ * - **Needs JS.** The static `/icon` stays the real favicon; this adds a
+ *   second icon link on top of it after hydration, so JS-off loses nothing —
+ *   and, unlike the version that overwrote `/icon`'s `href` with a `data:`
+ *   URI, a crawler following the head still finds a fetchable PNG. That was
+ *   half of why Google was drawing a blank circle for this site.
  * - **Stops when the tab is hidden** and restores the static icon — a tab
  *   frozen mid-hop reads as broken. Same on unmount, and it never starts under
  *   `prefers-reduced-motion`.
@@ -156,10 +159,32 @@ const FRAME_CACHE = new Map<string, string>();
 
 export default function AnimatedFavicon() {
   useEffect(() => {
-    let link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
-    if (!link) return;
-
-    const staticHref = link.href;
+    /*
+     * **Its own `<link>`, and Next's is left exactly as it was.**
+     *
+     * This used to take over the one `link[rel~="icon"]` on the page and
+     * overwrite its `href` with a `canvas.toDataURL()` string — and that is
+     * half of why Google drew a blank circle beside the search result instead
+     * of this mark. Googlebot renders JavaScript, so what it found in the
+     * head was a `data:` URI, which is not a URL it can go and fetch a
+     * favicon from. (The other half was the tile being 32px; see `icon.tsx`.)
+     *
+     * Appending instead means the crawlable `/icon` link survives untouched
+     * and a browser still shows the animation, since with several icon links
+     * declared it takes the last one. Removing this element is therefore all
+     * that "stop" has to do — the static mark is still sitting there behind
+     * it.
+     */
+    const OWN = "data-bt-animated";
+    const makeLink = () => {
+      const el = document.createElement("link");
+      el.rel = "icon";
+      el.type = "image/png";
+      el.setAttribute(OWN, "");
+      document.head.appendChild(el);
+      return el;
+    };
+    let link: HTMLLinkElement | null = null;
 
     /*
      * Assigns to one stable element.
@@ -169,15 +194,22 @@ export default function AnimatedFavicon() {
      * rapid churn of head elements. Reassigning `href` on a single element is
      * what every favicon library does, and it keeps animating.
      *
-     * The element is re-acquired when detached rather than captured once:
-     * `AutoRefresh` refreshes the route every 300s and can replace it, and
-     * holding the original froze the tab after five minutes.
+     * The element is re-made when detached rather than captured once:
+     * `AutoRefresh` refreshes the route every 300s and can replace head
+     * elements, and holding a detached one froze the tab after five minutes.
      */
     function setIcon(href: string) {
-      if (!link?.isConnected) {
-        link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
-      }
-      if (link) link.href = href;
+      if (!link?.isConnected) link = makeLink();
+      link.href = href;
+    }
+
+    /* Drop ours and the static `/icon` link takes over again by itself. */
+    function restoreStatic() {
+      link?.remove();
+      link = null;
+      document.head
+        .querySelectorAll(`link[${OWN}]`)
+        .forEach((el) => el.remove());
     }
 
     const canvas = document.createElement("canvas");
@@ -223,7 +255,7 @@ export default function AnimatedFavicon() {
     function onVisibility() {
       if (document.hidden) {
         stop();
-        setIcon(staticHref);
+        restoreStatic();
       } else if (timer === undefined) {
         i = 0;
         tick();
@@ -236,7 +268,7 @@ export default function AnimatedFavicon() {
     return () => {
       stop();
       document.removeEventListener("visibilitychange", onVisibility);
-      setIcon(staticHref);
+      restoreStatic();
     };
   }, []);
 

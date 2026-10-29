@@ -496,6 +496,26 @@ export const profile = {
   handle: "@bradleytsou",
   /** His actual LinkedIn headline, not a paraphrase of it. */
   tagline: "Applied Math + CS @ UC Berkeley",
+  /**
+   * The `<meta name="description">`, and **deliberately not the tagline**.
+   *
+   * Its own field because the tagline is *rendered* — it's the first bio line,
+   * with `UC Berkeley` linked inside it — so there is no editing one without
+   * editing the page. Bradley asked for this one by name after seeing Google
+   * ignore the tagline and scrape a sentence out of the BRI Youth role
+   * instead: "make it 'my cool website'".
+   *
+   * Worth knowing before treating it as a lever: Google rewrites a
+   * description it judges unhelpful for the query, which is what it was
+   * already doing here, and a short one is the most likely kind to be
+   * rewritten. This is what the page *asks* to be described as; whether it
+   * gets used is Google's call, not the site's.
+   *
+   * `openGraph.description` is still the tagline — that's the link-preview
+   * line in iMessage, Slack and LinkedIn, a different surface and a different
+   * audience. See `openGraphFor`.
+   */
+  metaDescription: "my cool website",
   /** Org in `tagline` to link, and where to. See `BioLine`. */
   taglineLink: {
     linkText: "UC Berkeley",
