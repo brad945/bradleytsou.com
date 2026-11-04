@@ -168,7 +168,7 @@ function Half({
         height, so the fit is governed by the same number it always was and
         the zoom didn't need re-tuning.
 
-        3110ms with a back-eased curve: it should arrive like something pushed
+        2500ms with a back-eased curve: it should arrive like something pushed
         out rather than something faded in.
 
         **The duration is written as an arbitrary value, and the figure is
@@ -177,23 +177,22 @@ function Half({
         arbitrary-value class mentioned in prose is emitted as a real, dead
         rule. That has happened twice in this repo.
 
-        **Bradley has set this three times, always as a factor on the speed,
-        and the duration is therefore always divided rather than multiplied.**
-        That is the one thing to get right here: a request to go faster makes
-        this number smaller and a request to go slower makes it bigger, by the
-        reciprocal of the factor he names.
+        **Set outright now, after four rounds of factors.** "make slide
+        duration 2500 ms" — a duration in milliseconds, so there is nothing to
+        convert and nothing to get backwards.
 
-        - "make like 75% speed of what it is now", from 700 -> 700 / 0.75 = 933
-        - "make it 75% slower than what it is now" -> speed to a quarter, so
-          933 x 4 = 3732
-        - "make the current slide out animation 1.2x faster" ->
-          3732 / 1.2 = 3110
+        That is worth keeping, because the four before it were all factors on
+        the *speed*, which act on this number by their reciprocal: 700 ->
+        700 / 0.75 = 933 ("75% speed"), -> 933 x 4 = 3732 ("75% slower", the
+        literal quarter-speed reading rather than the looser "75% longer",
+        which would have been 1633), -> 3732 / 1.2 = 3110 ("1.2x faster"),
+        -> 2500. Faster makes this smaller and slower makes it bigger; getting
+        that inverted carries a 4x error, which is why it was written down.
 
-        The middle step was the literal reading of "75% slower" rather than the
-        looser "75% longer" (1633), taken because he had already called this
-        too fast once after a 33% lengthening. The 1.2x that followed suggests
-        3732 was slightly long, so 1633 is still worth knowing as the figure
-        the other reading would have given.
+        The path 933 -> 3732 -> 3110 -> 2500 also says something the individual
+        asks don't: the quarter-speed step overshot, and 2500 is close to the
+        1633 the other reading of it would have given. If this moves again,
+        somewhere in 1600-2500 is where it has been converging.
       */}
       {/*
         An anchor, because the flat mark it replaced was one and is now at the
@@ -209,7 +208,7 @@ function Half({
         href="/#top"
         aria-label={`${profile.name} — home`}
         onTransitionEnd={() => setSettled(true)}
-        className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-[3110ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-[2500ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open
             ? "translate-x-0"
             : right
