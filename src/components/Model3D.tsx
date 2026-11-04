@@ -570,17 +570,33 @@ function Pose({
  * reveal at 60Hz to feed a value almost every frame throws away.
  */
 function Probe({ probeRef }: { probeRef: ProbeRef }) {
-  const { camera, scene, size } = useThree();
+  const { camera, scene, gl } = useThree();
   const v = useMemo(() => new THREE.Vector3(), []);
   useFrame(() => {
     if (!probeRef.current) probeRef.current = {};
+    /*
+     * The canvas's own rect, not `useThree().size`.
+     *
+     * **`size.left` / `size.top` are not the viewport offset**, which is the
+     * bug this replaced: with the two canvases sitting at client x=0 and
+     * x=1205, `size.left` read 980 for both, so every projected point landed
+     * a couple of hundred pixels right of the glyph it belonged to. Measured
+     * — the muzzle came out at x=431 on a canvas that ends at 225. It only
+     * looked right at the far end because the `t.` is wide and the impact
+     * point was inside it anyway.
+     *
+     * Read per frame because the canvas genuinely moves per frame: the halves
+     * are mid-slide for the first 2.5s. `Spin` already reads this rect on
+     * every pointermove for the same reason.
+     */
+    const rect = gl.domElement.getBoundingClientRect();
     for (const name of ["muzzle", "impact"] as const) {
       const o = scene.getObjectByName(name);
       if (!o) continue;
       o.getWorldPosition(v).project(camera);
       probeRef.current[name] = {
-        x: ((v.x + 1) / 2) * size.width + size.left,
-        y: ((1 - v.y) / 2) * size.height + size.top,
+        x: ((v.x + 1) / 2) * rect.width + rect.left,
+        y: ((1 - v.y) / 2) * rect.height + rect.top,
       };
     }
   });
