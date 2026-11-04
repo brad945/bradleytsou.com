@@ -8,7 +8,7 @@ import {
   useGLTF,
 } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
 
@@ -375,6 +375,7 @@ export default function Model3D({
   glyph,
   zoom = 1,
   onReady,
+  onPick,
   className,
 }: {
   /** A `.glb` in `public/`. Omit to spin the extruded `bt.` mark instead. */
@@ -402,10 +403,38 @@ export default function Model3D({
    * was still empty.
    */
   onReady?: () => void;
+  /**
+   * Fired when a click lands on the model's own geometry, and not before.
+   *
+   * **This exists because a canvas is a rectangle and a letterform isn't.**
+   * The caller's box is as tall as the reveal needs, so wrapping it in a link
+   * made every pixel of that box clickable — Bradley's words were "why can i
+   * 'click them' when im not hovering directly over them". r3f raycasts the
+   * meshes, so attaching the intent here instead means the empty space around
+   * the glyph is genuinely inert, and the `b`'s counter is a hole that clicks
+   * pass through for free because it is a real hole in the geometry.
+   *
+   * Handlers go on a group around the model alone, never the scene: the
+   * contact shadow is a mesh too, and anything broader would make the shadow
+   * clickable.
+   */
+  onPick?: () => void;
   className?: string;
 }) {
+  /*
+   * Hover is tracked only to set the cursor, and it is set as an inline style
+   * rather than a class because Tailwind's scanner reads this file as text —
+   * a class name toggled at runtime is one it can't see. (The same rule as
+   * the ternaries in `MarkReveal`.)
+   */
+  const [over, setOver] = useState(false);
+  const pickable = !!onPick;
+
   return (
-    <div className={className}>
+    <div
+      className={className}
+      style={pickable && over ? { cursor: "pointer" } : undefined}
+    >
       <Canvas
         shadows
         /*
@@ -448,7 +477,36 @@ export default function Model3D({
           */}
           <Float speed={1.4} rotationIntensity={0.15} floatIntensity={0.4}>
             <Spin mode={mode}>
-              {src ? <GltfModel src={src} /> : <ExtrudedMark glyph={glyph} />}
+              {/*
+                The pick target, and it is this group rather than anything
+                larger on purpose — see `onPick`. Without a handler this is a
+                plain group, so `/play` raycasts nothing and pays nothing.
+
+                `stopPropagation` because r3f reports every mesh the ray
+                crosses: an extruded glyph is several meshes deep at the
+                bevels, so one click would otherwise fire once per hit.
+              */}
+              <group
+                onClick={
+                  pickable
+                    ? (e) => {
+                        e.stopPropagation();
+                        onPick?.();
+                      }
+                    : undefined
+                }
+                onPointerOver={
+                  pickable
+                    ? (e) => {
+                        e.stopPropagation();
+                        setOver(true);
+                      }
+                    : undefined
+                }
+                onPointerOut={pickable ? () => setOver(false) : undefined}
+              >
+                {src ? <GltfModel src={src} /> : <ExtrudedMark glyph={glyph} />}
+              </group>
             </Spin>
           </Float>
 

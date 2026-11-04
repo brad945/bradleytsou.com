@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { profile } from "@/lib/profile-data";
 
 /**
  * The 3D mark, cut in half and sliding out from behind the profile block into
@@ -111,6 +110,33 @@ const Model3D = dynamic(() => import("@/components/Model3D"), { ssr: false });
 const MIN_VW = 1180;
 
 /**
+ * What a hit on either glyph does: go to the top of the profile.
+ *
+ * **This is a function because the anchor that used to do it is gone** — see
+ * the note on the box below. Replacing `href="/#top"` with
+ * `location.assign("/#top")` would have been the literal translation and is
+ * subtly worse: assigning a URL whose hash is already current doesn't
+ * re-scroll, so a second hit would do nothing on a page the reader had
+ * scrolled back down.
+ *
+ * So on `/` it scrolls and keeps the hash in the address bar in step, and
+ * anywhere else it is a real navigation. `scrollTo` is called without
+ * `behavior`, which leaves it to the CSS `scroll-behavior` on `html` — that's
+ * what keeps the `prefers-reduced-motion` opt-out there working rather than
+ * hardcoding smooth here and overriding it.
+ */
+function goTop() {
+  if (window.location.pathname !== "/") {
+    window.location.assign("/#top");
+    return;
+  }
+  window.scrollTo({ top: 0 });
+  if (window.location.hash !== "#top") {
+    window.history.replaceState(null, "", "/#top");
+  }
+}
+
+/**
  * One half of the mark, in one of the two black columns.
  *
  * `open` is owned by the parent so both halves move on the same tick; the
@@ -195,18 +221,31 @@ function Half({
         somewhere in 1600-2500 is where it has been converging.
       */}
       {/*
-        An anchor, because the flat mark it replaced was one and is now at the
-        bottom of the page. This is the nav's home link for as long as the
-        gesture is running — same `/#top` target, same reason: `top` is a
-        fragment the spec resolves to the document top, so it needs no element
-        and lands without the ~56px jolt `#profile` caused.
+        **A div, and it used to be an `<a href="/#top">`.** Bradley: "can u
+        make it so that the 'b' and 't.' are like isolated, why can i 'click
+        them' when im not hovering directly over them". The box is as tall as
+        the reveal needs and the glyph fills a fraction of it, so an anchor
+        here made every pixel of the surround a link.
 
-        Escape still dismisses and puts the flat mark back, so the link isn't
-        the only way out.
+        **`pointer-events-none` on the anchor would not have fixed it.** A
+        click on a DOM descendant activates its ancestor anchor whatever that
+        ancestor's `pointer-events` is, and the anchor also claimed the
+        pointer cursor and the status-bar URL preview across the whole box —
+        which is the symptom as he described it. So the element goes and the
+        intent moves to `onPick`, which r3f fires only on a ray that hits the
+        glyph's own geometry.
+
+        The box keeps `pointer-events-auto`: r3f needs real DOM events on the
+        canvas to raycast at all. What changed is that landing one no longer
+        means anything unless it hits the mark.
+
+        Still the nav's home target while the gesture is up, now via
+        `goTop()` — same `/#top`, same reason: `top` is a fragment the spec
+        resolves to the document top, so it lands without the ~56px jolt
+        `#profile` caused. Escape still dismisses, so this isn't the only way
+        out.
       */}
-      <a
-        href="/#top"
-        aria-label={`${profile.name} — home`}
+      <div
         onTransitionEnd={() => setSettled(true)}
         className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-[2500ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open
@@ -231,9 +270,10 @@ function Half({
           glyph={right ? "t" : "b"}
           zoom={1.35}
           onReady={onReady}
+          onPick={goTop}
           className="h-full w-full"
         />
-      </a>
+      </div>
     </div>
   );
 }
