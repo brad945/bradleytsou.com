@@ -98,18 +98,19 @@ export type Glyph = "b" | "t";
 /**
  * How far `follow` turns the model at full cursor deflection, in radians.
  *
- * **Bradley has set this twice and the second time was down.** Splitting the
- * mark in two came with "increase the 'mouse cursor following' for both once u
- * separate them", which took 0.85 / 0.35 to 1.3 / 0.55 — a half again on each,
- * or 74.5° and 31.5°. He then asked to "reduce the multiplier for how much the
- * b and the t look at/follow the cursor", so these are 0.75x of that: 56.1°
- * and 23.5°.
+ * **Bradley has set this three times and it has come back to where it
+ * started.** Splitting the mark in two came with "increase the 'mouse cursor
+ * following' for both once u separate them", which took 0.85 / 0.35 to
+ * 1.3 / 0.55 — a half again on each, or 74.5° and 31.5°. Then "reduce the
+ * multiplier", which took 0.75x of that to 0.98 / 0.41. Then "a bit less"
+ * again, which lands on 0.85 / 0.35: 48.7° and 20.1°.
  *
- * Note that lands them *above* the pre-split pair rather than back at it. That
- * is deliberate — the ask was to reduce the raised value, not to undo the
- * raise, and 0.85 / 0.35 were tuned for one mark in the middle of the page
- * rather than two at the edges. He gave 75% for the slide in the same message
- * and no number for this, so the same factor is the assumption here.
+ * So the split mark now follows the cursor exactly as far as the whole mark
+ * did, and the intermediate 0.98 / 0.41 was the step that argued otherwise —
+ * it kept some of the raise on the grounds that two marks at the edges of the
+ * page are not one mark in the middle. Two rounds of "less" settled that:
+ * **the geometry of the split didn't want a bigger angle after all.** Worth
+ * knowing before anyone raises it again for the same reason.
  *
  * **Those degree figures are the achieved maximum, not just the constant in
  * other units, and that is only true because `aim` is clamped to ±1.** The
@@ -121,11 +122,11 @@ export type Glyph = "b" | "t";
  *
  * What bounds the yaw is legibility rather than geometry: past about 80° an
  * extruded letterform is edge-on and reads as a bar, and at 90° it is gone.
- * 74.5° was close to that edge on purpose; 56.1° has real room, so this knob
- * can go back up without hitting it.
+ * 74.5° was close to that edge on purpose; 48.7° is nowhere near it, so what
+ * limits this knob now is taste rather than the letterform.
  */
-const FOLLOW_YAW = 0.98;
-const FOLLOW_PITCH = 0.41;
+const FOLLOW_YAW = 0.85;
+const FOLLOW_PITCH = 0.35;
 
 /**
  * Spins its children on Y — or rocks them, which for a wordmark is better.
