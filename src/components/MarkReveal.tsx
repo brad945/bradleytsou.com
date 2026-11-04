@@ -128,7 +128,9 @@ function Half({
   const right = side === "right";
   /*
    * Raised above the content once it has arrived — see the note on the
-   * wrapper below. Separate from `open` because the two happen 700ms apart.
+   * wrapper below. Separate from `open` because the two happen a slide apart.
+   * It's driven by `onTransitionEnd` rather than a timer, so it tracks the
+   * duration on its own and nothing here needs changing when that moves.
    */
   const [settled, setSettled] = useState(false);
 
@@ -166,8 +168,19 @@ function Half({
         height, so the fit is governed by the same number it always was and
         the zoom didn't need re-tuning.
 
-        `duration-700` with a back-eased curve: it should arrive like
-        something pushed out rather than something faded in.
+        933ms with a back-eased curve: it should arrive like something pushed
+        out rather than something faded in.
+
+        **The duration is written as an arbitrary value, and the figure is
+        deliberately not spelled as a class name anywhere in these comments.**
+        Tailwind's scanner reads source as plain text, comments included, so an
+        arbitrary-value class mentioned in prose is emitted as a real, dead
+        rule. That has happened twice in this repo.
+
+        It was 700ms and is 933 at Bradley's request — "make the sliding
+        animation a bit slower its too fast rn, make like 75% speed of what it
+        is now". 75% speed is 1/0.75 of the duration, not 0.75 of it, so the
+        number goes up: 700 / 0.75 = 933.
       */}
       {/*
         An anchor, because the flat mark it replaced was one and is now at the
@@ -183,7 +196,7 @@ function Half({
         href="/#top"
         aria-label={`${profile.name} — home`}
         onTransitionEnd={() => setSettled(true)}
-        className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-[933ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open
             ? "translate-x-0"
             : right
