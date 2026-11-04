@@ -98,17 +98,34 @@ export type Glyph = "b" | "t";
 /**
  * How far `follow` turns the model at full cursor deflection, in radians.
  *
- * **Raised at Bradley's request when the mark was split in two** — "increase
- * the 'mouse cursor following' for both once u separate them" — from 0.85 and
- * 0.35, a half again on each. 1.3rad is 74.5°, 0.55 is 31.5°.
+ * **Bradley has set this twice and the second time was down.** Splitting the
+ * mark in two came with "increase the 'mouse cursor following' for both once u
+ * separate them", which took 0.85 / 0.35 to 1.3 / 0.55 — a half again on each,
+ * or 74.5° and 31.5°. He then asked to "reduce the multiplier for how much the
+ * b and the t look at/follow the cursor", so these are 0.75x of that: 56.1°
+ * and 23.5°.
+ *
+ * Note that lands them *above* the pre-split pair rather than back at it. That
+ * is deliberate — the ask was to reduce the raised value, not to undo the
+ * raise, and 0.85 / 0.35 were tuned for one mark in the middle of the page
+ * rather than two at the edges. He gave 75% for the slide in the same message
+ * and no number for this, so the same factor is the assumption here.
+ *
+ * **Those degree figures are the achieved maximum, not just the constant in
+ * other units, and that is only true because `aim` is clamped to ±1.** The
+ * target is `aim.x * FOLLOW_YAW` and the lerp below eases toward it without
+ * overshooting (`k` is capped at 1), so the clamp is what makes the multiplier
+ * and the limit the same number. Take the clamp out — the raw ratio runs past
+ * 1 once the pointer is beyond half a viewport from a canvas's centre — and
+ * every angle quoted here becomes a floor instead of a ceiling.
  *
  * What bounds the yaw is legibility rather than geometry: past about 80° an
  * extruded letterform is edge-on and reads as a bar, and at 90° it is gone.
- * The same note under `Spin` is why this mode exists instead of a full turn.
- * 74.5° is close to that edge on purpose and is as far as it should go.
+ * 74.5° was close to that edge on purpose; 56.1° has real room, so this knob
+ * can go back up without hitting it.
  */
-const FOLLOW_YAW = 1.3;
-const FOLLOW_PITCH = 0.55;
+const FOLLOW_YAW = 0.98;
+const FOLLOW_PITCH = 0.41;
 
 /**
  * Spins its children on Y — or rocks them, which for a wordmark is better.
