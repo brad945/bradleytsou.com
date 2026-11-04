@@ -361,6 +361,20 @@ const config: Config = {
       backgroundImage: {
         starfield,
         /*
+         * A pellet from the `b`-as-a-gun, shaded as a sphere.
+         *
+         * Material shading like `avatar-frame` and the shelf faces, not a
+         * decorative gradient: a flat disc reads as a dot and the thing is
+         * meant to be a ball. Lit from the top-left, the same single light
+         * source every other surface on this site uses, so the highlight sits
+         * at 30%/30% and the terminator runs to the bottom-right.
+         *
+         * `bright` and `link` rather than new values — the pellets come out of
+         * a chrome letterform, so the body is the link blue the rest of the
+         * reveal's chrome uses and the hotspot is the page's white.
+         */
+        pellet: `radial-gradient(circle at 30% 30%, ${tokens.bright}, ${tokens.link} 42%, ${tokens.teal} 100%)`,
+        /*
          * Avatar frame. The one gradient left on the site: it's material
          * shading, not decoration — the reference frame is genuinely lit from
          * the top-left, and flattening it makes the bevel disappear. Every

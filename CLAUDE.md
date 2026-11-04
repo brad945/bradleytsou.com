@@ -1516,6 +1516,27 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   lands. Asked for by name. The chips react only to being pointed at, and
   the burst only to the egg completing; no confetti under
   `prefers-reduced-motion`, the same call `Reactions` makes.
+  **A ninth, and the largest: the `b` is a gun.** Asked for by name — "the
+  'b' flipped 90 deg cw looks like a gun". Hovering it rolls it 90°
+  clockwise, which turns the ascender into a barrel pointing at the `t.`
+  and leaves the bowl hanging as the grip; clicking squashes it and fires a
+  pellet across the page; the `t.` takes it like a Minecraft hit —
+  knockback, a white frame, then red decaying over half a second. It sits on
+  the right side of the rule for the same reason the rest do: nothing moves
+  until you point at it, and nothing fires unless you click. No pellets and
+  no flash under `prefers-reduced-motion`.
+  Three parts of it are load-bearing and documented where they live. The
+  arm-on-glyph / release-on-box-leave split in `MarkReveal`: a
+  geometry-only hover **loops**, because the roll moves the glyph out from
+  under the pointer that caused it, which is the same trap the solids hit
+  and the same fix `AvatarPrism` uses. The pellets being DOM circles
+  portalled to `document.body`: each canvas is 225px wide and clips its own
+  contents, so nothing inside either scene can cross the page, and the
+  slide's own transform would make a fixed layer rendered in a `Half` the
+  width of one column. And `HIT_WHITE_FRAMES` in `src/lib/mark-hit.ts`,
+  which floors the white flash in frames rather than milliseconds —
+  measured, a 70ms window fell between two frames on a software renderer
+  and **zero frames were drawn white**.
 - **Close visual fidelity to Steam's profile layout is intentional** —
   Bradley asked for it directly, superseding the earlier "inspired by the
   structure of, not a literal skin" note. Don't undo it. The carve-out

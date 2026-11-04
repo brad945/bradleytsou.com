@@ -1,7 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  HIT_IFRAME_MS,
+  PELLET_MS,
+  PELLET_PX,
+  type ProbeRef,
+  type Shot,
+} from "@/lib/mark-hit";
 
 /**
  * The 3D mark, cut in half and sliding out from behind the profile block into
@@ -137,6 +145,95 @@ function goTop() {
 }
 
 /**
+ * The pellets, in flight across the whole viewport.
+ *
+ * **Portalled to `document.body`, which is not optional.** The box each half
+ * lives in carries a `translate-x-*` for the slide, and a transformed
+ * ancestor becomes the containing block for `position: fixed` descendants —
+ * so a full-viewport layer rendered inside a `Half` would be a layer the
+ * width of one black column, and it would slide. That is the same trap the
+ * Tech Stack confetti is portalled to avoid.
+ *
+ * **DOM circles rather than three.js.** The pellet has to cross the page, and
+ * each canvas is 225px wide and clipped to its own column — an object in
+ * either scene physically cannot leave it. A third full-screen canvas for
+ * three spheres would be 269kB of renderer for something `border-radius` and
+ * one `backgroundImage` token already draw.
+ *
+ * Animated with the Web Animations API rather than a CSS transition, because
+ * the arrival is what triggers the hit: `.finished` is a promise that resolves
+ * on the real end of the animation, where a transition would need a listener
+ * and a guess at which property ended.
+ */
+function Pellets({
+  shots,
+  onLand,
+}: {
+  shots: Shot[];
+  onLand: (id: number) => void;
+}) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  useEffect(() => setHost(document.body), []);
+  if (!host) return null;
+
+  return createPortal(
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-[60]">
+      {shots.map((s) => (
+        <Pellet key={s.id} shot={s} onLand={onLand} />
+      ))}
+    </div>,
+    host,
+  );
+}
+
+function Pellet({
+  shot,
+  onLand,
+}: {
+  shot: Shot;
+  onLand: (id: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const anim = el.animate(
+      [
+        { transform: "translate3d(0,0,0)" },
+        { transform: `translate3d(${shot.dx}px, ${shot.dy}px, 0)` },
+      ],
+      { duration: PELLET_MS, easing: "linear", fill: "forwards" },
+    );
+    let live = true;
+    anim.finished
+      .then(() => {
+        if (live) onLand(shot.id);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+      anim.cancel();
+    };
+    /* `shot` is created once per pellet and never mutated, so this runs once;
+       re-running it would restart a pellet mid-flight. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute rounded-full bg-pellet"
+      style={{
+        left: shot.x - PELLET_PX / 2,
+        top: shot.y - PELLET_PX / 2,
+        width: PELLET_PX,
+        height: PELLET_PX,
+      }}
+    />
+  );
+}
+
+/**
  * One half of the mark, in one of the two black columns.
  *
  * `open` is owned by the parent so both halves move on the same tick; the
@@ -146,12 +243,43 @@ function Half({
   side,
   open,
   onReady,
+  hitAt,
+  probeRef,
+  onFire,
 }: {
   side: "left" | "right";
   open: boolean;
   onReady: () => void;
+  /** Right half only: timestamp of the pellet that just landed. */
+  hitAt?: number;
+  probeRef?: ProbeRef;
+  /** Left half only: the gun went off. */
+  onFire?: () => void;
 }) {
   const right = side === "right";
+
+  /*
+   * ## Why the gun arms on hover and releases on leaving the whole box
+   *
+   * **A geometry-only hover flickers, and it is a loop rather than a
+   * wobble.** Rolling the `b` 90° moves the stem out from under a stationary
+   * pointer; the next `pointermove` raycasts a miss, so it unrolls; the stem
+   * comes back under the pointer; it rolls again. CLAUDE.md records the same
+   * loop for the solids, where a lifted box moved out from under the pointer
+   * that lifted it — and the fix is the same one `AvatarPrism` uses: a hover
+   * *arms* it and something coarser releases it. Here that is `pointerleave`
+   * on the box, which the roll cannot move.
+   *
+   * It also fixes a second problem for free. After the roll the glyph is
+   * somewhere else, so the pointer that triggered it is usually over empty
+   * space — and a geometry-only click would then do nothing, which reads as
+   * broken. While armed, a click anywhere in this box fires. Arming still
+   * costs a hover on the mark itself, so the isolation holds: you cannot fire
+   * a gun you never touched.
+   */
+  const [armed, setArmed] = useState(false);
+  const [popAt, setPopAt] = useState<number>();
+  const gun = !!onFire;
   /*
    * Raised above the content once it has arrived — see the note on the
    * wrapper below. Separate from `open` because the two happen a slide apart.
@@ -247,6 +375,16 @@ function Half({
       */}
       <div
         onTransitionEnd={() => setSettled(true)}
+        onPointerLeave={gun ? () => setArmed(false) : undefined}
+        onClick={
+          gun
+            ? () => {
+                if (!armed) return;
+                setPopAt(performance.now());
+                onFire?.();
+              }
+            : undefined
+        }
         className={`pointer-events-auto block h-[40vh] max-h-[380px] w-full transition-transform duration-[2500ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open
             ? "translate-x-0"
@@ -265,12 +403,22 @@ function Half({
           x already turn symmetrically — each toward the cursor. See the note
           there; negating one half's yaw was tried and did the opposite.
         */}
+        {/*
+          The `b` no longer navigates — it is the gun, and `goTop` on it would
+          scroll the page to the top on every shot. The `t.` keeps the home
+          link, so the gesture still has one.
+        */}
         <Model3D
           mode="follow"
           glyph={right ? "t" : "b"}
           zoom={1.35}
           onReady={onReady}
-          onPick={goTop}
+          onPick={gun ? undefined : goTop}
+          onArm={gun ? () => setArmed(true) : undefined}
+          roll={gun ? armed : undefined}
+          popAt={gun ? popAt : undefined}
+          hitAt={hitAt}
+          probeRef={probeRef}
           className="h-full w-full"
         />
       </div>
@@ -304,6 +452,31 @@ export default function MarkReveal() {
    */
   const [ready, setReady] = useState(0);
   const open = ready >= 2;
+
+  /*
+   * The gun's state lives up here because it spans both halves: the `b` fires
+   * and the `t.` is what gets hit, and the pellets belong to neither box.
+   */
+  const gunProbe: ProbeRef = useRef(null);
+  const targetProbe: ProbeRef = useRef(null);
+  const nextId = useRef(0);
+  const [shots, setShots] = useState<Shot[]>([]);
+  const [hitAt, setHitAt] = useState<number>();
+
+  /*
+   * No pellets and no flash under `prefers-reduced-motion`, the same call
+   * `Reactions` makes about its flying emoji and `TechStack` about its
+   * confetti. The roll and the squash stay: those are responses to a pointer
+   * on a thing, which is the line the rest of this site's motion sits on.
+   */
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduced(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     const reveal = () => {
@@ -339,10 +512,66 @@ export default function MarkReveal() {
 
   const onReady = () => setReady((n) => n + 1);
 
+  /*
+   * Fire: read both probes *now* and freeze the flight path.
+   *
+   * The pellet travels in page space while both glyphs keep moving — the
+   * follow yaws them at the cursor and `Float` bobs them — so the path is
+   * sampled at the trigger and not tracked. A pellet that homed would be a
+   * missile rather than a bullet, and the `t.` would never be missable.
+   */
+  const fire = () => {
+    if (reduced) return;
+    /* One ref per half: both canvases project their own anchors, so a shared
+       ref would have each overwriting the other's every frame. */
+    const from = gunProbe.current?.muzzle;
+    const to = targetProbe.current?.impact;
+    if (!from || !to) return;
+    setShots((s) => [
+      ...s,
+      {
+        id: nextId.current++,
+        x: from.x,
+        y: from.y,
+        dx: to.x - from.x,
+        dy: to.y - from.y,
+      },
+    ]);
+  };
+
+  /*
+   * Landing: drop the pellet and hurt the `t.` — unless it is already hurt.
+   *
+   * The i-frame is `HIT_RED_MS` in `Model3D` and it is why `hitAt` is only
+   * re-set when the previous window has expired. Minecraft has the same
+   * cooldown; without it, clicking fast restarts the white frame on every
+   * landing and the glyph strobes.
+   */
+  const land = (id: number) => {
+    setShots((s) => s.filter((x) => x.id !== id));
+    setHitAt((prev) => {
+      const now = performance.now();
+      return prev && now - prev < HIT_IFRAME_MS ? prev : now;
+    });
+  };
+
   return (
     <>
-      <Half side="left" open={open} onReady={onReady} />
-      <Half side="right" open={open} onReady={onReady} />
+      <Half
+        side="left"
+        open={open}
+        onReady={onReady}
+        probeRef={gunProbe}
+        onFire={fire}
+      />
+      <Half
+        side="right"
+        open={open}
+        onReady={onReady}
+        probeRef={targetProbe}
+        hitAt={hitAt}
+      />
+      <Pellets shots={shots} onLand={land} />
     </>
   );
 }

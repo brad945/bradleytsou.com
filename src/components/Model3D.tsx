@@ -11,6 +11,12 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
+import {
+  HIT_RED_MS,
+  HIT_WHITE_FRAMES,
+  HIT_WHITE_MS,
+  type ProbeRef,
+} from "@/lib/mark-hit";
 
 /**
  * A spinning 3D model, built the way ayushbhujle.com builds his.
@@ -283,7 +289,7 @@ function GltfModel({ src }: { src: string }) {
 /** World units per SVG unit. Fixed, not fitted — see `markSvg`. */
 const MARK_SCALE = 0.0115;
 
-function ExtrudedMark({ glyph }: { glyph?: Glyph }) {
+function ExtrudedMark({ glyph, hitAt }: { glyph?: Glyph; hitAt?: number }) {
   /*
    * `useLoader` would work, but SVGLoader is synchronous on a data: URL and
    * going through Suspense for it buys nothing. Parsing here keeps the whole
@@ -326,14 +332,32 @@ function ExtrudedMark({ glyph }: { glyph?: Glyph }) {
    * orbiting a point out in space beside it. These come out at the old
    * numbers for the whole mark, which is how the swap was checked.
    */
-  const centre = useMemo(() => {
+  const bounds = useMemo(() => {
     const box = new THREE.Box3();
     for (const geo of geometry) {
       geo.computeBoundingBox();
       if (geo.boundingBox) box.union(geo.boundingBox);
     }
-    return box.getCenter(new THREE.Vector3());
+    return box;
   }, [geometry]);
+  const centre = useMemo(() => bounds.getCenter(new THREE.Vector3()), [bounds]);
+
+  /*
+   * One material for every mesh instead of one each, so a hit can tint the
+   * whole glyph by mutating a single object — see `Hurt`. An extruded
+   * letterform is several meshes (shell, bevels, and one per sub-path), and
+   * with a material apiece a tint would mean walking the tree every frame.
+   */
+  const material = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#dfe6ee",
+        metalness: 0.92,
+        roughness: 0.18,
+      }),
+    [],
+  );
+  useEffect(() => () => material.dispose(), [material]);
 
   /*
    * SVG's y axis points down and three.js's points up, so the mark arrives
@@ -350,23 +374,217 @@ function ExtrudedMark({ glyph }: { glyph?: Glyph }) {
         -centre.z * MARK_SCALE,
       ]}
     >
+      {/*
+        Near-mirror metal, which is only worth doing *because* there's an
+        environment map — `metalness: 1` with nothing to reflect renders as
+        flat black. The polish on the reference site is mostly this pairing
+        rather than anything about its model. Built in a `useMemo` above now
+        rather than declared per mesh, so `Hurt` has one object to tint.
+      */}
       {geometry.map((geo, i) => (
-        <mesh key={i} geometry={geo} castShadow receiveShadow>
-          {/*
-            Near-mirror metal, which is only worth doing *because* there's an
-            environment map — `metalness: 1` with nothing to reflect renders as
-            flat black. The polish on the reference site is mostly this pairing
-            rather than anything about its model.
-          */}
-          <meshStandardMaterial
-            color="#dfe6ee"
-            metalness={0.92}
-            roughness={0.18}
-          />
-        </mesh>
+        <mesh
+          key={i}
+          geometry={geo}
+          material={material}
+          castShadow
+          receiveShadow
+        />
       ))}
+
+      {/*
+        Two empty anchors, parented to the ink so every transform above them
+        carries them along: the impact point and the muzzle.
+
+        **They are objects rather than arithmetic because the maths would be
+        wrong by the time it mattered.** The gun's roll eases over ~180ms, the
+        `Float` bobs it, and `follow` yaws it at the cursor — so a muzzle
+        computed as an offset from the canvas rect is only correct when the
+        glyph happens to be at rest, which is never the frame you fire on.
+        `Probe` projects these through the camera instead.
+
+        `min.y` is the ink *top*: SVG's y axis points down, and the flip lives
+        in the group's negative y scale, so it hasn't happened yet down here.
+        That top is the `b`'s ascender, which a 90° clockwise roll swings to
+        point right — at the `t.`. The x sits 18% in from the left so the
+        anchor is on the stem rather than out over the bowl, which after the
+        roll is the difference between the barrel's centreline and mid-air.
+      */}
+      <Hurt material={material} hitAt={hitAt} />
+      <object3D name="impact" position={[centre.x, centre.y, bounds.max.z]} />
+      <object3D
+        name="muzzle"
+        position={[
+          bounds.min.x + (bounds.max.x - bounds.min.x) * 0.18,
+          bounds.min.y,
+          centre.z,
+        ]}
+      />
     </group>
   );
+}
+
+/** How far the hit shoves the glyph, in world units, before it eases back. */
+const KNOCKBACK = 0.42;
+
+/**
+ * Tints the shared material white then red after a hit, and nothing otherwise.
+ *
+ * In the material rather than as a DOM overlay, which is the whole point: an
+ * overlay would be a white *rectangle*, and what has to flash is the glyph.
+ * The base colour is restored by writing it back rather than by tracking a
+ * dirty flag, because a hit can be interrupted by a remount.
+ */
+function Hurt({
+  material,
+  hitAt,
+}: {
+  material: THREE.MeshStandardMaterial;
+  hitAt?: number;
+}) {
+  const base = useMemo(() => new THREE.Color("#dfe6ee"), []);
+  /* Local, like `#dfe6ee` above: a three.js material can't read a Tailwind
+     token, which is why the two 3D colours here are the config's exception. */
+  const white = useMemo(() => new THREE.Color("#ffffff"), []);
+  const red = useMemo(() => new THREE.Color("#ff2d20"), []);
+
+  /*
+   * How many white frames this hit still owes. Reset when `hitAt` changes
+   * rather than on a timer, so a hit that lands between two rendered frames
+   * still gets its flash — see `HIT_WHITE_FRAMES`.
+   */
+  const seen = useRef<number>();
+  const whiteLeft = useRef(0);
+
+  useFrame(() => {
+    if (hitAt !== seen.current) {
+      seen.current = hitAt;
+      whiteLeft.current = hitAt ? HIT_WHITE_FRAMES : 0;
+    }
+    const t = hitAt ? performance.now() - hitAt : Infinity;
+    if (t < 0 || (t > HIT_RED_MS && whiteLeft.current <= 0)) {
+      material.color.copy(base);
+      material.emissive.setRGB(0, 0, 0);
+      material.emissiveIntensity = 1;
+      return;
+    }
+    /* Frames first, duration second: whichever is still owed keeps it white. */
+    if (whiteLeft.current > 0 || t < HIT_WHITE_MS) {
+      whiteLeft.current -= 1;
+      material.color.copy(white);
+      material.emissive.copy(white);
+      material.emissiveIntensity = 1.5;
+      return;
+    }
+    /* Red, decaying to nothing over the rest of the window. */
+    const k = 1 - (t - HIT_WHITE_MS) / (HIT_RED_MS - HIT_WHITE_MS);
+    material.color.copy(base).lerp(red, 0.85 * k);
+    material.emissive.copy(red);
+    material.emissiveIntensity = 0.55 * k;
+  });
+  return null;
+}
+
+/**
+ * The hit shove, and it has to sit *outside* `Spin`.
+ *
+ * `follow` has the `t.` yawed up to 40° toward the cursor, so a knockback
+ * applied under that rotation would travel along the glyph's rotated x axis —
+ * partly into the screen, and in a direction that changes with the pointer.
+ * Out here the push is in the parent's frame, so it is always straight away
+ * from the `b`.
+ */
+function Knockback({
+  hitAt,
+  children,
+}: {
+  hitAt?: number;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    if (!ref.current) return;
+    const t = hitAt ? performance.now() - hitAt : Infinity;
+    /* Full shove on the white frame, then eased back over the red. */
+    const target =
+      t < 0 || t > HIT_RED_MS
+        ? 0
+        : t < HIT_WHITE_MS
+          ? KNOCKBACK
+          : KNOCKBACK * (1 - (t - HIT_WHITE_MS) / (HIT_RED_MS - HIT_WHITE_MS));
+    const k = Math.min(1, delta * 12);
+    ref.current.position.x += (target - ref.current.position.x) * k;
+  });
+  return <group ref={ref}>{children}</group>;
+}
+
+/**
+ * The gun pose: the 90° roll on hover and the squash on a click.
+ *
+ * **Inside `Spin`, so it composes instead of fighting.** `Spin` writes
+ * `rotation.x` and `.y` on its own group every frame; this writes `rotation.z`
+ * and `scale` on a child of it. Two refs, no shared property, so the follow
+ * and the roll add up rather than overwriting each other — which is the same
+ * reason `rock` accumulates time instead of reading the clock.
+ *
+ * **Negative z is clockwise.** The camera looks down -Z, so a positive
+ * `rotation.z` turns the mark anticlockwise on screen. The `b`'s ascender has
+ * to end up pointing right, at the `t.`, which is -90°.
+ */
+function Pose({
+  roll,
+  popAt,
+  children,
+  ...handlers
+}: {
+  roll?: boolean;
+  popAt?: number;
+  children: React.ReactNode;
+} & Record<string, unknown>) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    if (!ref.current) return;
+    const k = Math.min(1, delta * 9);
+    const target = roll ? -Math.PI / 2 : 0;
+    ref.current.rotation.z += (target - ref.current.rotation.z) * k;
+
+    /* The click squash: down fast, then released to spring back on the same
+       damping, which is where the bounce comes from. */
+    const t = popAt ? performance.now() - popAt : Infinity;
+    const want = t >= 0 && t < 150 ? 0.84 : 1;
+    const s = ref.current.scale.x + (want - ref.current.scale.x) * k * 1.8;
+    ref.current.scale.setScalar(Math.min(1, s));
+  });
+  return (
+    <group ref={ref} {...handlers}>
+      {children}
+    </group>
+  );
+}
+
+/**
+ * Projects the muzzle and impact anchors to client coordinates every frame.
+ *
+ * Written into a ref the caller owns rather than into state: this changes
+ * every frame and nothing renders from it — the pellet layer reads it once,
+ * at the moment of a shot. Putting it in state would re-render the whole
+ * reveal at 60Hz to feed a value almost every frame throws away.
+ */
+function Probe({ probeRef }: { probeRef: ProbeRef }) {
+  const { camera, scene, size } = useThree();
+  const v = useMemo(() => new THREE.Vector3(), []);
+  useFrame(() => {
+    if (!probeRef.current) probeRef.current = {};
+    for (const name of ["muzzle", "impact"] as const) {
+      const o = scene.getObjectByName(name);
+      if (!o) continue;
+      o.getWorldPosition(v).project(camera);
+      probeRef.current[name] = {
+        x: ((v.x + 1) / 2) * size.width + size.left,
+        y: ((1 - v.y) / 2) * size.height + size.top,
+      };
+    }
+  });
+  return null;
 }
 
 export default function Model3D({
@@ -376,6 +594,11 @@ export default function Model3D({
   zoom = 1,
   onReady,
   onPick,
+  onArm,
+  roll,
+  popAt,
+  hitAt,
+  probeRef,
   className,
 }: {
   /** A `.glb` in `public/`. Omit to spin the extruded `bt.` mark instead. */
@@ -419,6 +642,16 @@ export default function Model3D({
    * clickable.
    */
   onPick?: () => void;
+  /** Fired on a pointer entering the geometry — see `armed` in `MarkReveal`. */
+  onArm?: () => void;
+  /** Roll 90° clockwise: the `b` becomes a gun. Eased, not snapped. */
+  roll?: boolean;
+  /** Timestamp of a click to squash on. Re-set it to replay. */
+  popAt?: number;
+  /** Timestamp of a hit to flash white, redden and shove away from. */
+  hitAt?: number;
+  /** Filled every frame with the muzzle and impact points in client space. */
+  probeRef?: ProbeRef;
   className?: string;
 }) {
   /*
@@ -476,39 +709,49 @@ export default function Model3D({
             site whose brief bans decorative animation.
           */}
           <Float speed={1.4} rotationIntensity={0.15} floatIntensity={0.4}>
-            <Spin mode={mode}>
-              {/*
-                The pick target, and it is this group rather than anything
-                larger on purpose — see `onPick`. Without a handler this is a
-                plain group, so `/play` raycasts nothing and pays nothing.
+            <Knockback hitAt={hitAt}>
+              <Spin mode={mode}>
+                {/*
+                  The pick target, and it is this group rather than anything
+                  larger on purpose — see `onPick`. Without a handler this is a
+                  plain group, so `/play` raycasts nothing and pays nothing.
 
-                `stopPropagation` because r3f reports every mesh the ray
-                crosses: an extruded glyph is several meshes deep at the
-                bevels, so one click would otherwise fire once per hit.
-              */}
-              <group
-                onClick={
-                  pickable
-                    ? (e) => {
-                        e.stopPropagation();
-                        onPick?.();
-                      }
-                    : undefined
-                }
-                onPointerOver={
-                  pickable
-                    ? (e) => {
-                        e.stopPropagation();
-                        setOver(true);
-                      }
-                    : undefined
-                }
-                onPointerOut={pickable ? () => setOver(false) : undefined}
-              >
-                {src ? <GltfModel src={src} /> : <ExtrudedMark glyph={glyph} />}
-              </group>
-            </Spin>
+                  `stopPropagation` because r3f reports every mesh the ray
+                  crosses: an extruded glyph is several meshes deep at the
+                  bevels, so one click would otherwise fire once per hit.
+                */}
+                <Pose
+                  roll={roll}
+                  popAt={popAt}
+                  onClick={
+                    pickable
+                      ? (e: { stopPropagation: () => void }) => {
+                          e.stopPropagation();
+                          onPick?.();
+                        }
+                      : undefined
+                  }
+                  onPointerOver={
+                    pickable || onArm
+                      ? (e: { stopPropagation: () => void }) => {
+                          e.stopPropagation();
+                          setOver(true);
+                          onArm?.();
+                        }
+                      : undefined
+                  }
+                  onPointerOut={pickable ? () => setOver(false) : undefined}
+                >
+                  {src ? (
+                    <GltfModel src={src} />
+                  ) : (
+                    <ExtrudedMark glyph={glyph} hitAt={hitAt} />
+                  )}
+                </Pose>
+              </Spin>
+            </Knockback>
           </Float>
+          {probeRef && <Probe probeRef={probeRef} />}
 
           {/*
             The shadow the object drops on the floor, which is what stops it
