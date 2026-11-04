@@ -3,13 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  HIT_IFRAME_MS,
-  PELLET_MS,
-  PELLET_PX,
-  type ProbeRef,
-  type Shot,
-} from "@/lib/mark-hit";
+import { PELLET_MS, PELLET_PX, type ProbeRef, type Shot } from "@/lib/mark-hit";
 
 /**
  * The 3D mark, cut in half and sliding out from behind the profile block into
@@ -540,18 +534,23 @@ export default function MarkReveal() {
   };
 
   /*
-   * Landing: drop the pellet and hurt the `t.` — unless it is already hurt.
+   * Landing: drop the pellet and hurt the `t.`, every time, with no cooldown.
    *
-   * The i-frame is `HIT_RED_MS` in `Model3D` and it is why `hitAt` is only
-   * re-set when the previous window has expired. Minecraft has the same
-   * cooldown; without it, clicking fast restarts the white frame on every
-   * landing and the glyph strobes.
+   * "make the t 'hit' animation update per incoming bullet even if its mid
+   * animation" — so a pellet arriving mid-flash restarts it rather than being
+   * absorbed. See the note in `mark-hit`, which is where the invulnerability
+   * window used to be.
+   *
+   * `hitAt` has to *change* for `Hurt` to see a new hit, and it compares by
+   * value, so two pellets landing in the same sub-millisecond tick would read
+   * as one. Nudging past the previous value keeps it strictly increasing, so
+   * no landing is ever silently swallowed.
    */
   const land = (id: number) => {
     setShots((s) => s.filter((x) => x.id !== id));
     setHitAt((prev) => {
       const now = performance.now();
-      return prev && now - prev < HIT_IFRAME_MS ? prev : now;
+      return prev !== undefined && now <= prev ? prev + 0.01 : now;
     });
   };
 

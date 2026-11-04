@@ -49,19 +49,21 @@ export const HIT_RED_MS = 500;
 export const HIT_WHITE_FRAMES = 2;
 
 /**
- * `HIT_RED_MS` doubles as the invulnerability window.
+ * **There is deliberately no invulnerability window, and there was one.**
  *
- * A pellet landing while a hit is still running is absorbed rather than
- * restarting it, which is Minecraft's hurt cooldown and caps the white frame
- * at about 2Hz. Without it, clicking fast strobes the glyph — the flash is the
- * brightest thing on the page, so that is genuinely unpleasant rather than
- * merely busy.
+ * The first cut copied Minecraft's hurt cooldown: a pellet landing inside the
+ * red window was absorbed rather than restarting the flash. Bradley asked for
+ * the opposite — "make the t 'hit' animation update per incoming bullet even
+ * if its mid animation" — so every pellet now retriggers the white frame and
+ * restarts the red decay from zero, however fast they arrive.
  *
- * It is an alias rather than a second constant so the two cannot drift: the
- * window during which the glyph is *visibly* hurt is exactly the window during
- * which it ignores further hits.
+ * The thing that made a cooldown tempting is real: the white frame is the
+ * brightest thing on the page, so holding the mouse down strobes it. That is
+ * the accepted cost of the behaviour he asked for, and it is capped by how
+ * fast pellets can actually arrive — one per click, each with a 420ms flight.
+ * If it ever needs taming, tame it here rather than by dropping hits, because
+ * a hit that lands and shows nothing is the bug this replaced.
  */
-export const HIT_IFRAME_MS = HIT_RED_MS;
 
 /** How long a pellet takes to cross the page, and how wide it is drawn. */
 export const PELLET_MS = 420;
