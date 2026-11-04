@@ -36,7 +36,7 @@ import { playPop } from "@/lib/celebrate";
  *
  * ## The window, and the unwind
  *
- * All 34 have to be lit inside `WINDOW_MS`, at Bradley's request, or the run
+ * All 37 have to be lit inside `WINDOW_MS`, at Bradley's request, or the run
  * ends. The clock starts on the first chip, not on load, so it can't be
  * running before anyone has noticed the egg exists.
  *
@@ -88,16 +88,26 @@ const CHIP_REST = "border-line/70 bg-panel2/60 text-copy";
 const CHIP_FOUND = "border-link/60 bg-link/10 text-link";
 
 /**
- * How long a run lasts. All 34 inside it or the chips go out.
+ * How long a run lasts. All 37 inside it or the chips go out.
  *
  * Bradley's number, and it has moved: 3s, then 2.5, then 2.2, then back to
  * 2.5. Each value was asked for by name, so don't read the history as a
  * search for the right one — 2.2 worked fine; the difference is taste rather
  * than a measurement.
  *
- * At 2.5s that's about 74ms a chip, so it still wants one unbroken sweep. A
- * pointer dragged straight across the panel lands all 34 in ~1.2s, which is
- * the headroom that makes it winnable at all.
+ * At 2.5s that's about 68ms a chip, so it still wants one unbroken sweep.
+ *
+ * **Measured at 37, and the margin is down to ~280ms.** The chips wrap to 13
+ * rows in the sidebar, so lighting them all is a 2311px serpentine; driven at
+ * ~1040px/s they all land in 2220ms of the 2500ms window. (That run was bound
+ * by the test harness's ~23ms per synthetic move rather than by pointer speed,
+ * so it's an upper bound, not the floor.) The narrowest chip is 34px, which is
+ * what sets how coarse a drag can be and still hit every one.
+ *
+ * **`WINDOW_MS` does not scale and the path does.** Every tag added anywhere
+ * in `profile-data` makes this sweep longer against the same 2.5s, so this is
+ * the measurement to redo when one is — it's how the egg would go unwinnable
+ * without anything here looking wrong.
  */
 const WINDOW_MS = 2500;
 

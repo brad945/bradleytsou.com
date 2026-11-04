@@ -1118,14 +1118,19 @@ const EVIDENCED_STACK = [
   "GraphQL",
   "REST APIs",
   /*
-   * These two are **Bradley's own statement, not evidenced in this repo** —
+   * These five are **Bradley's own statement, not evidenced in this repo** —
    * which is a weaker footing than everything above, so it's worth saying.
-   * He works in Java (it's the Berkeley CS sequence) and with Codex
-   * alongside Claude; neither leaves a trace here, so nothing on this page
-   * can check them. That makes them the stack's equivalent of `profileLevel`.
+   * He works in Java (it's the Berkeley CS sequence), with Codex alongside
+   * Claude, and with Spring Boot, Spring AI and Swagger on backend work that
+   * lives nowhere in this Next.js repo. None of the five leaves a trace here,
+   * so nothing on this page can check them. That makes them the stack's
+   * equivalent of `profileLevel`.
    */
   "Java",
   "Codex",
+  "Spring Boot",
+  "Spring AI",
+  "Swagger",
 ];
 
 /**
@@ -1161,8 +1166,10 @@ const EVIDENCED_STACK = [
 const STACK_ORDER: readonly (readonly string[])[] = [
   // Languages. What a reader looks for first, and what most filters key on.
   ["Python", "Java", "TypeScript", "JavaScript"],
-  // What he builds with.
-  ["Next.js", "React", "Node.js", "Tailwind CSS"],
+  // What he builds with. Spring Boot and Spring AI sit together on purpose:
+  // they share a name, so splitting Spring AI into the AI tier below would
+  // land the pair at opposite ends of the panel and read as an oversight.
+  ["Next.js", "React", "Node.js", "Spring Boot", "Spring AI", "Tailwind CSS"],
   // The AI work, which is what the current roles actually are.
   [
     "Claude",
@@ -1183,6 +1190,7 @@ const STACK_ORDER: readonly (readonly string[])[] = [
     "Vercel",
     "GraphQL",
     "REST APIs",
+    "Swagger",
     "Data Analysis",
     "Data Visualization",
   ],
