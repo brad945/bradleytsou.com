@@ -98,19 +98,20 @@ export type Glyph = "b" | "t";
 /**
  * How far `follow` turns the model at full cursor deflection, in radians.
  *
- * **Bradley has set this three times and it has come back to where it
- * started.** Splitting the mark in two came with "increase the 'mouse cursor
- * following' for both once u separate them", which took 0.85 / 0.35 to
- * 1.3 / 0.55 — a half again on each, or 74.5° and 31.5°. Then "reduce the
- * multiplier", which took 0.75x of that to 0.98 / 0.41. Then "a bit less"
- * again, which lands on 0.85 / 0.35: 48.7° and 20.1°.
+ * **Set in degrees, by Bradley, after four rounds of nudging it in ratios.**
+ * "make it 15 to 40" — 40° of yaw and 15° of pitch, which is what 0.70 and
+ * 0.26 are here. The constants stay in radians because that is what three.js
+ * rotations take; the degrees are the spec, so convert from them rather than
+ * scaling these numbers if it moves again.
  *
- * So the split mark now follows the cursor exactly as far as the whole mark
- * did, and the intermediate 0.98 / 0.41 was the step that argued otherwise —
- * it kept some of the raise on the grounds that two marks at the edges of the
- * page are not one mark in the middle. Two rounds of "less" settled that:
- * **the geometry of the split didn't want a bigger angle after all.** Worth
- * knowing before anyone raises it again for the same reason.
+ * The history, because it explains why this ended up stated outright. The
+ * split came with "increase the 'mouse cursor following' for both once u
+ * separate them": 0.85 / 0.35 to 1.3 / 0.55, or 74.5° and 31.5°. Then "reduce
+ * the multiplier" — 0.75x, to 56.1° / 23.5°. Then "a bit less" — to 48.7° /
+ * 20.1°, the pre-split pair. Then this. **Every round but the first went
+ * down**, so the raise that came with the split was simply wrong, and the
+ * ratio steps were a slow way of finding that out. Don't re-derive it by
+ * scaling; 40 / 15 is the asked-for value.
  *
  * **Those degree figures are the achieved maximum, not just the constant in
  * other units, and that is only true because `aim` is clamped to ±1.** The
@@ -122,11 +123,11 @@ export type Glyph = "b" | "t";
  *
  * What bounds the yaw is legibility rather than geometry: past about 80° an
  * extruded letterform is edge-on and reads as a bar, and at 90° it is gone.
- * 74.5° was close to that edge on purpose; 48.7° is nowhere near it, so what
- * limits this knob now is taste rather than the letterform.
+ * 74.5° was close to that edge on purpose; 40° is half of it, so what limits
+ * this knob now is taste rather than the letterform.
  */
-const FOLLOW_YAW = 0.85;
-const FOLLOW_PITCH = 0.35;
+const FOLLOW_YAW = 0.7; // 40°
+const FOLLOW_PITCH = 0.26; // 15°
 
 /**
  * Spins its children on Y — or rocks them, which for a wordmark is better.
