@@ -1527,17 +1527,26 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   no flash under `prefers-reduced-motion`.
   **Hits stack, through Apple's rubber-band law.** Bradley asked for the
   `t.` to go further the more it's shot, "by less and less each time", and
-  named overscroll as the reference — so `KNOCK_CEILING` / `KNOCK_FIRST` in
-  `Model3D` feed UIScrollView's own hyperbola and the accumulator is the
-  glyph's live displacement rather than a hit counter, which is what makes
-  it reset itself: spam and each shot buys less, wait half a second and the
-  next is a full shove. **Both numbers are capped by the canvas**, and that
-  is why the first hit got smaller when stacking landed. Measured off a
-  parked render: the `t.` ends at x=186 of a 225px canvas at rest, a world
-  unit is ~54px, so there are 39px to its right. The old flat 0.42 was 23 of
-  those 39, leaving stacking nowhere to go; 0.32 → 0.62 is 17px → 33px with
-  6px of margin for the `Float` bob and the follow yaw. Re-measure before
-  raising either.
+  named overscroll as the reference — so `KNOCK_FIRST` / `KNOCK_LIMIT` in
+  `Model3D` feed UIScrollView's own hyperbola. Two things about it were
+  wrong on the first pass and both produced the same symptom, "looks the
+  same as before":
+  1. **The ceiling was a constant, and it can't be.** Each half is a canvas
+     that clips, and its width is the page gutter —
+     `w-[calc((100vw-990px)/2)]`, so 225px at a 1440 window and 465px at
+     1920. A number tuned against the narrow case is most of the room on a
+     laptop and a quarter of it on a desktop. `Knockback` derives it from
+     the frustum now: `fov` is **vertical**, so a wider gutter is pure extra
+     room rather than a bigger mark, and the glyph's own right edge comes
+     off a `Box3` of the subtree. Measured: 0.645 at 1440, `KNOCK_LIMIT`
+     (1.2) from about 1700 up.
+  2. **The accumulator must be the band, not the glyph's position.** Reading
+     where the `t.` actually is sounds right and self-limits far too early,
+     because the shove is already easing back while the next pellet is in
+     the air — a burst of seven plateaued at 0.50 against a 0.645 ceiling.
+     `KNOCK_RETAIN` gives the stretch its own decay (~600ms half-life,
+     slower than the 500ms hit, fast enough to reset on its own). The same
+     burst now runs 0.42 → 0.58 at 1440 and 0.42 → 0.88 at 1920.
   Three more parts are load-bearing and documented where they live. The
   arm-on-glyph / release-on-box-leave split in `MarkReveal`: a
   geometry-only hover **loops**, because the roll moves the glyph out from

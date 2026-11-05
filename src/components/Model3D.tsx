@@ -445,37 +445,67 @@ function ExtrudedMark({ glyph, hitAt }: { glyph?: Glyph; hitAt?: number }) {
  * less because the band is already stretched; let it settle for half a second
  * and the next shot is a full shove again, with nothing to decay or clear.
  *
- * From rest the sequence runs 0.32, 0.42, 0.47, 0.50, 0.52 … → 0.62, or 17px,
- * 23, 26, 27, 28 … → 33. Most of the growth is in the first three shots,
- * which is where a burst of clicks actually lands.
+ * **The ceiling is measured at runtime, not written down, and the first
+ * attempt at this got it wrong by writing it down.** Each half is a canvas
+ * that clips its own contents, and its width is the page gutter —
+ * `w-[calc((100vw-990px)/2)]`, so 225px at a 1440 window and 465px at 1920.
+ * A constant tuned against the narrow case is most of the room on a laptop
+ * and a quarter of it on a desktop, which is exactly how a stacking shove
+ * ends up looking identical to the flat one it replaced.
  *
- * **Both numbers are bounded by the canvas, not by taste, and that is why the
- * first hit got smaller.** Each half is 225px wide and clips its own
- * contents. Measured off a render with the shove parked: the `t.` ends at
- * x=186 at rest and x=222 when parked at 0.67, so a world unit is ~54px and
- * there are 39px of room to its right. The old flat 0.42 was 23px of those
- * 39 — nearly all of it — so stacking on top of it had nowhere to go and the
- * growth would have been a pixel or two a shot. Dropping the first hit to
- * 0.32 buys the headroom that makes the escalation visible at all. The 6px
- * left over at the ceiling is the margin for the `Float` bob and the
- * up-to-40° follow yaw; raising either number without re-measuring those is
- * how the glyph ends up with a flat edge.
+ * `Knockback` works it out from the frustum instead. `fov` is **vertical**,
+ * so the glyph's size is set by the canvas height and a wider gutter is pure
+ * extra room rather than a bigger mark: visible half-width is
+ * `tan(fov/2)·distance·aspect`, the glyph's own right edge comes off a `Box3`
+ * of the subtree, and what's left over — less `KNOCK_MARGIN` for the `Float`
+ * bob and the up-to-40° follow yaw — is how far it may travel. Measured on
+ * the 1440 window this was tuned against: ~0.70 world units, against the 0.62
+ * that was hardcoded; at 1920 it is `KNOCK_LIMIT` instead, which is there so
+ * an ultrawide doesn't fling the `t.` half a screen.
+ *
+ * From rest at a 1440 window the sequence runs 0.42, 0.53, 0.58, 0.61 … →
+ * 0.70; with more gutter it keeps climbing to 1.2. Either way the first hit
+ * is the 0.42 this started out as, which is the number Bradley has been
+ * looking at since the gun landed.
  */
-const KNOCK_CEILING = 0.62;
 
-/** What one hit from rest is worth. Was a flat 0.42 for every hit. */
-const KNOCK_FIRST = 0.32;
+/** What one hit from rest is worth, in world units. */
+const KNOCK_FIRST = 0.42;
 
-/** Band stretch -> visible offset, and back. Inverses, hence the shared form. */
-const stretch = (raw: number) => (raw * KNOCK_CEILING) / (KNOCK_CEILING + raw);
-const unstretch = (d: number) =>
-  (d * KNOCK_CEILING) / Math.max(KNOCK_CEILING - d, 1e-6);
+/** The most a run of hits may ever stack to, however wide the gutter is. */
+const KNOCK_LIMIT = 1.2;
 
 /**
- * How much raw stretch one pellet adds. Derived rather than set, so that
- * `KNOCK_FIRST` means what it says however the ceiling moves.
+ * Room kept between the ceiling and the clip. Small on purpose: the `Float`
+ * bob is vertical, and a yaw *narrows* the silhouette rather than widening it
+ * (an extruded glyph projects `w·cos θ + depth·sin θ`, and the depth here is a
+ * fraction of the width), so there is very little to leave room for.
  */
-const KNOCK_STEP = unstretch(KNOCK_FIRST);
+const KNOCK_MARGIN = 0.05;
+
+/**
+ * What fraction of the band's stretch survives a second, and the reason there
+ * is a band at all rather than a running total of the glyph's position.
+ *
+ * The first cut stacked onto wherever the `t.` happened to be, which sounds
+ * right and self-limits far too early: the shove is already easing back while
+ * the next pellet is still in the air, so a burst of seven measured 0.42,
+ * 0.48, 0.49, 0.47, 0.49, 0.50 — a plateau well under the ceiling, and from
+ * the outside indistinguishable from the flat shove it replaced. Bradley's
+ * report was exactly that, "looks the same as before".
+ *
+ * Holding the stretch in its own value, decaying on its own clock, is what
+ * lets a burst actually walk up to the ceiling while a single shot still
+ * settles and resets. ~0.3 per second halves it in about 600ms — slower than
+ * the 500ms hit so consecutive pellets compound, fast enough that walking away
+ * for a second leaves nothing behind.
+ */
+const KNOCK_RETAIN = 0.3;
+
+/** Band stretch -> visible offset, and back. Inverses, hence the shared form. */
+const stretch = (raw: number, ceil: number) => (raw * ceil) / (ceil + raw);
+const unstretch = (d: number, ceil: number) =>
+  (d * ceil) / Math.max(ceil - d, 1e-6);
 
 /**
  * Tints the shared material white then red after a hit, and nothing otherwise.
@@ -552,23 +582,60 @@ function Knockback({
   children: React.ReactNode;
 }) {
   const ref = useRef<THREE.Group>(null);
-  /* This hit's peak. Set once when `hitAt` changes — see `KNOCK_CEILING`. */
+  /* This hit's peak. Set once when `hitAt` changes — see `KNOCK_FIRST`. */
   const seen = useRef<number>();
   const amp = useRef(0);
+  /** Accumulated band stretch — see `KNOCK_RETAIN`. */
+  const raw = useRef(0);
+
+  /*
+   * How far there is to travel before the canvas cuts the glyph off, and the
+   * band step that lands the first hit on `KNOCK_FIRST` against it. Both are
+   * measured rather than written — see the block comment above — and re-measured
+   * whenever the canvas resizes, since the gutter is a function of the window.
+   */
+  const { camera, size } = useThree();
+  const room = useRef(KNOCK_LIMIT);
+  const step = useRef(0);
+  const measuredAt = useRef("");
+  const box = useMemo(() => new THREE.Box3(), []);
 
   useFrame((_, delta) => {
     if (!ref.current) return;
+
+    const key = `${size.width}x${size.height}`;
+    if (measuredAt.current !== key) {
+      box.setFromObject(ref.current);
+      /* Empty until the glyph's geometry mounts; retry rather than record. */
+      if (Number.isFinite(box.max.x)) {
+        measuredAt.current = key;
+        const cam = camera as THREE.PerspectiveCamera;
+        const halfW =
+          Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) *
+          cam.position.z *
+          (size.width / size.height);
+        /* `max.x` carries the current shove; the rest-relative edge is what counts. */
+        const edge = box.max.x - ref.current.position.x;
+        room.current = Math.min(
+          KNOCK_LIMIT,
+          Math.max(KNOCK_FIRST, halfW - edge - KNOCK_MARGIN),
+        );
+        step.current = unstretch(KNOCK_FIRST, room.current);
+      }
+    }
+
+    /* The band relaxes on its own clock, independent of the hit animation. */
+    raw.current *= Math.pow(KNOCK_RETAIN, delta);
+
     if (hitAt !== seen.current) {
       seen.current = hitAt;
-      /*
-       * Stack onto what's still on screen, not onto the last hit's peak. The
-       * position lags its target by design (the lerp below), so reading it is
-       * also what makes a shot that lands late in the decay count for nearly a
-       * full shove while one that lands during the flash counts for little.
-       */
-      amp.current = hitAt
-        ? stretch(unstretch(ref.current.position.x) + KNOCK_STEP)
-        : 0;
+      if (hitAt) {
+        raw.current += step.current;
+        amp.current = stretch(raw.current, room.current);
+      } else {
+        raw.current = 0;
+        amp.current = 0;
+      }
     }
     const t = hitAt ? performance.now() - hitAt : Infinity;
     /* Full shove on the white frame, then eased back over the red. */
