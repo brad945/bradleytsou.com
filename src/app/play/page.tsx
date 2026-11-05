@@ -137,6 +137,18 @@ export default async function Play() {
               <p className="font-sign mt-2 text-[22px] leading-tight tracking-[-0.01em] text-bright sm:text-[28px]">
                 hover over the “bt.” in the top left
               </p>
+
+              {/*
+                The aside, and deliberately **not** `font-sign`. That face is
+                how this site says a thing isn't open yet — the line above it
+                and `BoardedUp`'s cover — and a second line in it at a second
+                size would read as a subhead rather than as someone speaking.
+                Body copy at `muted` is the register the footer uses, which is
+                the right one for a remark off to the side of the instruction.
+              */}
+              <p className="mt-1 text-[13px] text-muted">
+                if you found it yourself then congrats!
+              </p>
             </div>
           </PlayGate>
         </section>
