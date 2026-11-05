@@ -63,7 +63,8 @@ import { playPop } from "@/lib/celebrate";
  * It isn't keyboard-reachable, and that's the honest cost of "hover over the
  * tech stack elements": the chips are `<li>`s and making 34 of them tab stops
  * would wreck the page's keyboard order to hide a joke behind it. The thing
- * it gates is a page that currently says "Coming soon".
+ * it gates is a page that currently points at the next gesture rather than
+ * holding anything of its own.
  */
 
 /*

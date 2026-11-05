@@ -118,13 +118,24 @@ export default async function Play() {
               </CanvasBoundary>
 
               {/*
-                `font-sign`, the same face and treatment `BoardedUp` uses for the
-                privacy cover. The site already has a way of saying "coming
-                soon"; saying it a second way in body copy would read as a
-                different site's placeholder.
+                **A pointer at the next thing, not a placeholder.** This said
+                "Coming soon" until Bradley replaced it: the page behind the
+                egg announcing that it is empty tells a reader who has just
+                worked for it nothing they can act on, where the mark in the
+                nav is a whole second gesture they have no way of guessing at.
+                Hover is the literal trigger — `NavMark` falls on
+                `pointerEnter`, with a press-and-hold standing in on touch,
+                where there is no hover to use.
+
+                `font-sign` stays, because the slot hasn't changed: it is
+                still the one line of signage over an empty page, and the
+                privacy cover in `BoardedUp` is still the other. Smaller than
+                the line it replaces, though — this one is three times the
+                length and an instruction rather than a headline, and at the
+                old size it ran most of the column and wrapped on a phone.
               */}
-              <p className="font-sign mt-2 text-[32px] leading-none tracking-[-0.01em] text-bright sm:text-[40px]">
-                Coming soon
+              <p className="font-sign mt-2 text-[22px] leading-tight tracking-[-0.01em] text-bright sm:text-[28px]">
+                hover over the “bt.” in the top left
               </p>
             </div>
           </PlayGate>

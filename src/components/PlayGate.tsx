@@ -26,8 +26,8 @@ export default function PlayGate({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 py-10 text-center">
       {/*
         `font-sign`, the face this site uses for a thing that isn't open yet —
-        the same treatment as the "Coming soon" line below the model and the
-        privacy cover in `BoardedUp`. A third way of saying it would read as a
+        the same treatment as the hint line below the model and the privacy
+        cover in `BoardedUp`. A third way of saying it would read as a
         different site's placeholder.
       */}
       <p className="font-sign text-[40px] leading-none tracking-[-0.01em] text-bright sm:text-[52px]">
