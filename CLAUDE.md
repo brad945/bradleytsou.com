@@ -1547,6 +1547,19 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
      `KNOCK_RETAIN` gives the stretch its own decay (~600ms half-life,
      slower than the 500ms hit, fast enough to reset on its own). The same
      burst now runs 0.42 → 0.58 at 1440 and 0.42 → 0.88 at 1920.
+  **A tenth: the `t.` is a catapult**, asked for the same way. It rolls the
+  other way on hover (+90°, anticlockwise), the stem standing up as an arm
+  with the `.` cocked at its far end; a click swings the arm and throws the
+  `.` at the `b`, which takes the same Minecraft hit at `KNOCK_SLING` (2.5x)
+  and in the opposite direction. The `.` fades back onto the `t.` when it
+  lands, and with no stone there is nothing to throw — which is what keeps
+  the catapult from being spammable the way the gun is. Two consequences
+  worth knowing: `T_DOT` is parsed separately so the period is its own group
+  with its own material (opacity is per-material, so a shared one would fade
+  the whole glyph), and **the reveal no longer has a home link** — both
+  glyphs now spend their click on a weapon, so Escape and the nav's own `bt.`
+  are the way home. The 2.5x is honoured where the gutter allows: measured,
+  it is 2.5x at 1920 and ~1.5x at 1440, where the canvas runs out first.
   Three more parts are load-bearing and documented where they live. The
   arm-on-glyph / release-on-box-leave split in `MarkReveal`: a
   geometry-only hover **loops**, because the roll moves the glyph out from

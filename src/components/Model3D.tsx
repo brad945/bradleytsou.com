@@ -12,9 +12,11 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
 import {
+  DOT_FADE_MS,
   HIT_RED_MS,
   HIT_WHITE_FRAMES,
   HIT_WHITE_MS,
+  type ProbeAnchor,
   type ProbeRef,
 } from "@/lib/mark-hit";
 
@@ -67,9 +69,25 @@ const B = [
  * and the footer would all still be drawing. It sits low and right of the
  * stem, which is where it sits in the mark.
  */
-const T = `<rect x="196" y="116" width="127" height="55" />
-  <rect x="226" y="58" width="67" height="223" />
-  <circle cx="365" cy="250" r="42" />`;
+const T_ARM = `<rect x="196" y="116" width="127" height="55" />
+  <rect x="226" y="58" width="67" height="223" />`;
+
+/**
+ * The period, split out because it is the catapult's stone.
+ *
+ * Bradley's second gesture: the `t.` rolled 90° anticlockwise reads as a
+ * catapult and the `.` as what it throws. That only works if the dot is its
+ * own object — it has to detach, cross the page and fade back — so the two
+ * rects and the circle are parsed separately and rendered as sibling groups.
+ *
+ * **They are still centred on the two together**, not each on itself, so the
+ * `t.` sits exactly where it always did and the dot keeps its offset from the
+ * stem. Fitting them independently would centre a circle in a canvas.
+ */
+const T_DOT = `<circle cx="365" cy="250" r="42" />`;
+
+const T = `${T_ARM}
+  ${T_DOT}`;
 
 /**
  * The mark as an SVG document, which is what `SVGLoader` parses — whole, or
@@ -85,21 +103,31 @@ const T = `<rect x="196" y="116" width="127" height="55" />
  * graduates past a prototype the path data moves to one module both import;
  * it's duplicated now so an experiment touches nothing that ships.
  */
-function markSvg(glyph?: Glyph) {
-  const body =
+const wrap = (body: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 292">
+  ${body}
+</svg>`;
+
+function markSvg(glyph?: Glyph, part?: Part) {
+  if (part === "dot") return wrap(T_DOT);
+  return wrap(
     glyph === "b"
       ? `<path d="${B}" />`
       : glyph === "t"
-        ? T
+        ? T_ARM
         : `<path d="${B}" />
-  ${T}`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 292">
-  ${body}
-</svg>`;
+  ${T}`,
+  );
 }
 
 /** Which half of the mark to extrude. Omitted means all of it. */
 export type Glyph = "b" | "t";
+
+/**
+ * Which piece of a glyph. Only the `t.` has two, and only it needs them —
+ * `"dot"` is the catapult's stone, `"body"` everything else.
+ */
+export type Part = "body" | "dot";
 
 /**
  * How far `follow` turns the model at full cursor deflection, in radians.
@@ -289,36 +317,67 @@ function GltfModel({ src }: { src: string }) {
 /** World units per SVG unit. Fixed, not fitted — see `markSvg`. */
 const MARK_SCALE = 0.0115;
 
-function ExtrudedMark({ glyph, hitAt }: { glyph?: Glyph; hitAt?: number }) {
+/**
+ * Extrude one SVG's worth of shapes. Split out of `ExtrudedMark` because the
+ * `t.` is parsed twice — see `T_DOT`.
+ */
+function extrude(svg: string) {
+  const data = new SVGLoader().parse(svg);
+  const geos: THREE.ExtrudeGeometry[] = [];
+  for (const path of data.paths) {
+    /*
+     * `createShapes` is what turns a filled path into shapes *with holes* —
+     * the b's counter is a real hole in the 2D mark, done by winding, and it
+     * has to stay one here or the letterform fills in.
+     */
+    for (const shape of SVGLoader.createShapes(path)) {
+      geos.push(
+        new THREE.ExtrudeGeometry(shape, {
+          depth: 52,
+          bevelEnabled: true,
+          bevelThickness: 6,
+          bevelSize: 5,
+          bevelSegments: 4,
+          curveSegments: 28,
+        }),
+      );
+    }
+  }
+  return geos;
+}
+
+/** The union of a set of geometries' bounding boxes, in their own space. */
+function boundsOf(geos: THREE.ExtrudeGeometry[]) {
+  const box = new THREE.Box3();
+  for (const geo of geos) {
+    geo.computeBoundingBox();
+    if (geo.boundingBox) box.union(geo.boundingBox);
+  }
+  return box;
+}
+
+function ExtrudedMark({
+  glyph,
+  hitAt,
+  dotGone,
+}: {
+  glyph?: Glyph;
+  hitAt?: number;
+  /** `t.` only: the stone is in flight, so don't draw it. */
+  dotGone?: boolean;
+}) {
   /*
    * `useLoader` would work, but SVGLoader is synchronous on a data: URL and
    * going through Suspense for it buys nothing. Parsing here keeps the whole
    * geometry inside one `useMemo`.
    */
-  const geometry = useMemo(() => {
-    const data = new SVGLoader().parse(markSvg(glyph));
-    const geos: THREE.ExtrudeGeometry[] = [];
-    for (const path of data.paths) {
-      /*
-       * `createShapes` is what turns a filled path into shapes *with holes* —
-       * the b's counter is a real hole in the 2D mark, done by winding, and it
-       * has to stay one here or the letterform fills in.
-       */
-      for (const shape of SVGLoader.createShapes(path)) {
-        geos.push(
-          new THREE.ExtrudeGeometry(shape, {
-            depth: 52,
-            bevelEnabled: true,
-            bevelThickness: 6,
-            bevelSize: 5,
-            bevelSegments: 4,
-            curveSegments: 28,
-          }),
-        );
-      }
-    }
-    return geos;
-  }, [glyph]);
+  const geometry = useMemo(() => extrude(markSvg(glyph)), [glyph]);
+
+  /* The stone, parsed on its own so it can leave. Only the `t.` has one. */
+  const dotGeometry = useMemo(
+    () => (glyph === "t" ? extrude(markSvg(glyph, "dot")) : null),
+    [glyph],
+  );
 
   /*
    * Where the extruded glyphs actually are, so the group can be hung on their
@@ -333,14 +392,22 @@ function ExtrudedMark({ glyph, hitAt }: { glyph?: Glyph; hitAt?: number }) {
    * numbers for the whole mark, which is how the swap was checked.
    */
   const bounds = useMemo(() => {
-    const box = new THREE.Box3();
-    for (const geo of geometry) {
-      geo.computeBoundingBox();
-      if (geo.boundingBox) box.union(geo.boundingBox);
-    }
+    const box = boundsOf(geometry);
+    /* The union, so splitting the dot out doesn't move the `t.` — see T_DOT. */
+    if (dotGeometry) box.union(boundsOf(dotGeometry));
     return box;
-  }, [geometry]);
+  }, [geometry, dotGeometry]);
   const centre = useMemo(() => bounds.getCenter(new THREE.Vector3()), [bounds]);
+
+  /** The stone's own centre and radius, for the sling anchors. */
+  const dot = useMemo(() => {
+    if (!dotGeometry) return null;
+    const box = boundsOf(dotGeometry);
+    return {
+      centre: box.getCenter(new THREE.Vector3()),
+      r: (box.max.x - box.min.x) / 2,
+    };
+  }, [dotGeometry]);
 
   /*
    * One material for every mesh instead of one each, so a hit can tint the
@@ -358,6 +425,21 @@ function ExtrudedMark({ glyph, hitAt }: { glyph?: Glyph; hitAt?: number }) {
     [],
   );
   useEffect(() => () => material.dispose(), [material]);
+
+  /*
+   * The stone gets its **own** material, and only because it has to fade.
+   * Opacity is a material property, so sharing one with the arm would fade
+   * the whole `t.` back in rather than just the dot. It is a clone, so the
+   * two stay identical metal; `Hurt` is handed both and tints them together,
+   * which is what keeps the dot flashing red with the rest of the glyph.
+   */
+  const dotMaterial = useMemo(() => {
+    if (!dotGeometry) return null;
+    const m = material.clone();
+    m.transparent = true;
+    return m;
+  }, [dotGeometry, material]);
+  useEffect(() => () => dotMaterial?.dispose(), [dotMaterial]);
 
   /*
    * SVG's y axis points down and three.js's points up, so the mark arrives
@@ -409,7 +491,42 @@ function ExtrudedMark({ glyph, hitAt }: { glyph?: Glyph; hitAt?: number }) {
         anchor is on the stem rather than out over the bowl, which after the
         roll is the difference between the barrel's centreline and mid-air.
       */}
-      <Hurt material={material} hitAt={hitAt} />
+      {/*
+        The stone, as a sibling group so the swing carries it and the launch
+        can drop it. Its anchors live *inside* here on purpose: the release
+        point is wherever the dot has actually been swung to, not where it
+        sits at rest, and `slingEdge` one radius along x gives `Probe` two
+        points whose projected gap is the stone's radius on screen.
+      */}
+      {dotGeometry && dotMaterial && dot && (
+        <group visible={!dotGone}>
+          {dotGeometry.map((geo, i) => (
+            <mesh
+              key={i}
+              geometry={geo}
+              material={dotMaterial}
+              castShadow
+              receiveShadow
+            />
+          ))}
+          <DotFade material={dotMaterial} gone={dotGone} />
+          <object3D
+            name="sling"
+            position={[dot.centre.x, dot.centre.y, dot.centre.z]}
+          />
+          <object3D
+            name="slingEdge"
+            position={[dot.centre.x + dot.r, dot.centre.y, dot.centre.z]}
+          />
+        </group>
+      )}
+
+      <Hurt
+        material={material}
+        dotMaterial={dotMaterial}
+        hitAt={hitAt}
+        dotGone={dotGone}
+      />
       <object3D name="impact" position={[centre.x, centre.y, bounds.max.z]} />
       <object3D
         name="muzzle"
@@ -517,10 +634,15 @@ const unstretch = (d: number, ceil: number) =>
  */
 function Hurt({
   material,
+  dotMaterial,
   hitAt,
+  dotGone,
 }: {
   material: THREE.MeshStandardMaterial;
+  /** The stone's own material, when there is one — see `dotMaterial`. */
+  dotMaterial?: THREE.MeshStandardMaterial | null;
   hitAt?: number;
+  dotGone?: boolean;
 }) {
   const base = useMemo(() => new THREE.Color("#dfe6ee"), []);
   /* Local, like `#dfe6ee` above: a three.js material can't read a Tailwind
@@ -536,6 +658,25 @@ function Hurt({
   const seen = useRef<number>();
   const whiteLeft = useRef(0);
 
+  /*
+   * Both materials take the same writes, so the stone flashes with the glyph
+   * it belongs to. It is skipped while it's in flight — the stone is drawn as
+   * a DOM circle out there, and tinting a mesh nobody can see is just work.
+   */
+  const paint = (
+    colour: THREE.Color,
+    emissive: THREE.Color | null,
+    intensity: number,
+  ) => {
+    for (const m of [material, dotGone ? null : dotMaterial]) {
+      if (!m) continue;
+      m.color.copy(colour);
+      if (emissive) m.emissive.copy(emissive);
+      else m.emissive.setRGB(0, 0, 0);
+      m.emissiveIntensity = intensity;
+    }
+  };
+
   useFrame(() => {
     if (hitAt !== seen.current) {
       seen.current = hitAt;
@@ -543,24 +684,53 @@ function Hurt({
     }
     const t = hitAt ? performance.now() - hitAt : Infinity;
     if (t < 0 || (t > HIT_RED_MS && whiteLeft.current <= 0)) {
-      material.color.copy(base);
-      material.emissive.setRGB(0, 0, 0);
-      material.emissiveIntensity = 1;
+      paint(base, null, 1);
       return;
     }
     /* Frames first, duration second: whichever is still owed keeps it white. */
     if (whiteLeft.current > 0 || t < HIT_WHITE_MS) {
       whiteLeft.current -= 1;
-      material.color.copy(white);
-      material.emissive.copy(white);
-      material.emissiveIntensity = 1.5;
+      paint(white, white, 1.5);
       return;
     }
     /* Red, decaying to nothing over the rest of the window. */
     const k = 1 - (t - HIT_WHITE_MS) / (HIT_RED_MS - HIT_WHITE_MS);
-    material.color.copy(base).lerp(red, 0.85 * k);
-    material.emissive.copy(red);
-    material.emissiveIntensity = 0.55 * k;
+    paint(base.clone().lerp(red, 0.85 * k), red, 0.55 * k);
+  });
+  return null;
+}
+
+/**
+ * Fades the stone back in once it has landed, and nothing else.
+ *
+ * "after the '.' hits the 'b', have it regenerate with the 't', just a simple
+ * fade in animation." Opacity is a material property, which is the whole
+ * reason the dot carries its own — see `dotMaterial`. The material is left
+ * `transparent` for its life rather than toggled, because flipping that flag
+ * recompiles the shader; at full opacity with `depthWrite` on, a transparent
+ * material and an opaque one draw the same pixels.
+ */
+function DotFade({
+  material,
+  gone,
+}: {
+  material: THREE.MeshStandardMaterial;
+  gone?: boolean;
+}) {
+  /* Seeded with the mount value, so the first reveal doesn't fade. */
+  const seen = useRef(gone);
+  const since = useRef(0);
+
+  useFrame(() => {
+    if (gone !== seen.current) {
+      seen.current = gone;
+      since.current = performance.now();
+      /* Back to full for next time; the group is hidden while it's away. */
+      if (gone) material.opacity = 1;
+    }
+    if (gone) return;
+    const t = performance.now() - since.current;
+    material.opacity = since.current ? Math.min(1, t / DOT_FADE_MS) : 1;
   });
   return null;
 }
@@ -576,9 +746,15 @@ function Hurt({
  */
 function Knockback({
   hitAt,
+  dir = 1,
+  scale = 1,
   children,
 }: {
   hitAt?: number;
+  /** Which way the shove travels: +1 away from the `b`, -1 away from the `t.`. */
+  dir?: 1 | -1;
+  /** Multiplier on both the first hit and the ceiling. The stone hits harder. */
+  scale?: number;
   children: React.ReactNode;
 }) {
   const ref = useRef<THREE.Group>(null);
@@ -614,13 +790,40 @@ function Knockback({
           Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) *
           cam.position.z *
           (size.width / size.height);
-        /* `max.x` carries the current shove; the rest-relative edge is what counts. */
-        const edge = box.max.x - ref.current.position.x;
+        /*
+         * The edge the shove travels toward, which is the far one when it
+         * travels the other way: the `t.` is hit from the left and runs out
+         * of room on its right, the `b` is hit from the right and runs out on
+         * its left. `position.x` carries the current shove, so it comes off
+         * both — the rest-relative edge is what counts.
+         */
+        const rest = ref.current.position.x;
+        const edge = dir > 0 ? box.max.x - rest : rest - box.min.x;
+        const first = KNOCK_FIRST * scale;
+        /*
+         * **The floor is the unscaled hit, not the scaled one.** `scale` is
+         * what the stone hits harder by, and on a narrow window there is
+         * simply nowhere to put it: 2.5x at a 1440 gutter is ~56px against
+         * ~39px of canvas, so flooring at the scaled value would guarantee a
+         * clipped `b` rather than a heavy one. Flooring at `KNOCK_FIRST`
+         * instead means the shove is 2.5x wherever it fits and as much as
+         * fits where it doesn't, and can never be worse than a pellet's —
+         * which already fits by construction.
+         */
         room.current = Math.min(
-          KNOCK_LIMIT,
+          KNOCK_LIMIT * scale,
           Math.max(KNOCK_FIRST, halfW - edge - KNOCK_MARGIN),
         );
-        step.current = unstretch(KNOCK_FIRST, room.current);
+        /*
+         * Capped just under the ceiling, not at it: `unstretch` of the
+         * ceiling itself is a divide by ~zero, which would pin the band at
+         * an astronomical stretch and leave it there for ten seconds while
+         * it decayed back. 0.9 leaves the last tenth for the stacking.
+         */
+        step.current = unstretch(
+          Math.min(first, room.current * 0.9),
+          room.current,
+        );
       }
     }
 
@@ -647,13 +850,19 @@ function Knockback({
           : amp.current *
             (1 - (t - HIT_WHITE_MS) / (HIT_RED_MS - HIT_WHITE_MS));
     const k = Math.min(1, delta * 12);
-    ref.current.position.x += (target - ref.current.position.x) * k;
+    ref.current.position.x += (target * dir - ref.current.position.x) * k;
   });
   return <group ref={ref}>{children}</group>;
 }
 
+/** How long the catapult's arm takes to whip through its throw. */
+const SWING_MS = 260;
+
+/** How far past the cocked angle the throw carries it, in radians. */
+const SWING_RAD = 0.85;
+
 /**
- * The gun pose: the 90° roll on hover and the squash on a click.
+ * The weapon pose: the 90° roll on hover, and what a click does with it.
  *
  * **Inside `Spin`, so it composes instead of fighting.** `Spin` writes
  * `rotation.x` and `.y` on its own group every frame; this writes `rotation.z`
@@ -663,28 +872,56 @@ function Knockback({
  *
  * **Negative z is clockwise.** The camera looks down -Z, so a positive
  * `rotation.z` turns the mark anticlockwise on screen. The `b`'s ascender has
- * to end up pointing right, at the `t.`, which is -90°.
+ * to end up pointing right, at the `t.`, which is -90°; the `t.` rolls the
+ * other way, +90°, which is the anticlockwise quarter-turn Bradley asked for
+ * and what stands the stem up as a catapult arm.
+ *
+ * **The two weapons answer a click differently, because they are different
+ * machines.** A gun recoils, so the `b` squashes and springs back. A catapult
+ * *throws*, so the `t.` swings its arm through `SWING_RAD` and eases back to
+ * the cocked angle — the swing is the launch, and the stone leaves on the
+ * same click. Sharing one component is deliberate: everything above the pose
+ * is identical, and the difference is two lines rather than a second copy of
+ * the roll.
  */
 function Pose({
   roll,
   popAt,
+  kind = "gun",
   children,
   ...handlers
 }: {
   roll?: boolean;
   popAt?: number;
+  kind?: "gun" | "catapult";
   children: React.ReactNode;
 } & Record<string, unknown>) {
   const ref = useRef<THREE.Group>(null);
+  const catapult = kind === "catapult";
   useFrame((_, delta) => {
     if (!ref.current) return;
     const k = Math.min(1, delta * 9);
-    const target = roll ? -Math.PI / 2 : 0;
-    ref.current.rotation.z += (target - ref.current.rotation.z) * k;
+    const cocked = roll ? (catapult ? Math.PI / 2 : -Math.PI / 2) : 0;
+    const t = popAt ? performance.now() - popAt : Infinity;
+
+    if (catapult) {
+      /*
+       * The throw: straight out to the released angle, then eased home. Not a
+       * damped approach in both directions — an arm that creeps into its
+       * throw is a lever being leaned on, and the whip is the whole gesture.
+       */
+      const thrown = t >= 0 && t < SWING_MS;
+      const target = thrown ? cocked + SWING_RAD : cocked;
+      ref.current.rotation.z +=
+        (target - ref.current.rotation.z) * (thrown ? 0.55 : k);
+      ref.current.scale.setScalar(1);
+      return;
+    }
+
+    ref.current.rotation.z += (cocked - ref.current.rotation.z) * k;
 
     /* The click squash: down fast, then released to spring back on the same
        damping, which is where the bounce comes from. */
-    const t = popAt ? performance.now() - popAt : Infinity;
     const want = t >= 0 && t < 150 ? 0.84 : 1;
     const s = ref.current.scale.x + (want - ref.current.scale.x) * k * 1.8;
     ref.current.scale.setScalar(Math.min(1, s));
@@ -695,6 +932,17 @@ function Pose({
     </group>
   );
 }
+
+/**
+ * Every anchor a scene might carry. Missing ones are skipped, so the `b` not
+ * having a stone costs a failed `getObjectByName` and nothing else.
+ */
+const PROBE_ANCHORS: readonly ProbeAnchor[] = [
+  "muzzle",
+  "impact",
+  "sling",
+  "slingEdge",
+];
 
 /**
  * Projects the muzzle and impact anchors to client coordinates every frame.
@@ -725,7 +973,7 @@ function Probe({ probeRef }: { probeRef: ProbeRef }) {
      * every pointermove for the same reason.
      */
     const rect = gl.domElement.getBoundingClientRect();
-    for (const name of ["muzzle", "impact"] as const) {
+    for (const name of PROBE_ANCHORS) {
       const o = scene.getObjectByName(name);
       if (!o) continue;
       o.getWorldPosition(v).project(camera);
@@ -747,8 +995,12 @@ export default function Model3D({
   onPick,
   onArm,
   roll,
+  pose,
   popAt,
   hitAt,
+  knockDir,
+  knockScale,
+  dotGone,
   probeRef,
   className,
 }: {
@@ -795,12 +1047,23 @@ export default function Model3D({
   onPick?: () => void;
   /** Fired on a pointer entering the geometry — see `armed` in `MarkReveal`. */
   onArm?: () => void;
-  /** Roll 90° clockwise: the `b` becomes a gun. Eased, not snapped. */
+  /** Roll a quarter turn: the `b` becomes a gun, the `t.` a catapult. */
   roll?: boolean;
+  /** Which weapon this glyph is, which decides the roll's sign. See `Pose`. */
+  pose?: "gun" | "catapult";
   /** Timestamp of a click to squash on. Re-set it to replay. */
   popAt?: number;
   /** Timestamp of a hit to flash white, redden and shove away from. */
   hitAt?: number;
+  /**
+   * Which way a hit shoves this glyph, and how hard. The `b` is hit from the
+   * right, so its knockback runs the other way; and the catapult's stone
+   * lands `KNOCK_SLING` times harder than a pellet does.
+   */
+  knockDir?: 1 | -1;
+  knockScale?: number;
+  /** `t.` only: the stone is in flight, so don't draw it on the glyph. */
+  dotGone?: boolean;
   /** Filled every frame with the muzzle and impact points in client space. */
   probeRef?: ProbeRef;
   className?: string;
@@ -860,7 +1123,7 @@ export default function Model3D({
             site whose brief bans decorative animation.
           */}
           <Float speed={1.4} rotationIntensity={0.15} floatIntensity={0.4}>
-            <Knockback hitAt={hitAt}>
+            <Knockback hitAt={hitAt} dir={knockDir} scale={knockScale}>
               <Spin mode={mode}>
                 {/*
                   The pick target, and it is this group rather than anything
@@ -874,6 +1137,7 @@ export default function Model3D({
                 <Pose
                   roll={roll}
                   popAt={popAt}
+                  kind={pose}
                   onClick={
                     pickable
                       ? (e: { stopPropagation: () => void }) => {
@@ -896,7 +1160,11 @@ export default function Model3D({
                   {src ? (
                     <GltfModel src={src} />
                   ) : (
-                    <ExtrudedMark glyph={glyph} hitAt={hitAt} />
+                    <ExtrudedMark
+                      glyph={glyph}
+                      hitAt={hitAt}
+                      dotGone={dotGone}
+                    />
                   )}
                 </Pose>
               </Spin>

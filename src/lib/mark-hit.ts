@@ -70,6 +70,25 @@ export const PELLET_MS = 420;
 export const PELLET_PX = 14;
 
 /**
+ * The catapult's counterparts, and why they aren't the pellet's.
+ *
+ * The `t.` rolled 90° anticlockwise is a catapult, with the `.` as the stone —
+ * Bradley's second gesture, and the mirror of the gun. A stone is not a
+ * bullet: it is bigger, it is slower, and it arrives with more behind it, so
+ * the flight is longer and `KNOCK_SLING` lands the `b` 2.5x further than a
+ * pellet moves the `t.` ("a greater knockback of like 2.5x").
+ *
+ * Its radius is **measured, not set**, from two anchors inside the dot itself
+ * — see `ProbeRef`. The `.` is a real part of the mark, so the stone has to be
+ * the size that part renders at, which changes with the canvas.
+ */
+export const SLING_MS = 620;
+export const KNOCK_SLING = 2.5;
+
+/** How long the `.` takes to fade back in once the stone has landed. */
+export const DOT_FADE_MS = 420;
+
+/**
  * Where the gun's muzzle and the target's impact point are, in client space.
  *
  * Filled every frame by `Probe` inside each canvas and read once, at the
@@ -80,16 +99,35 @@ export const PELLET_PX = 14;
  *
  * Each half needs its *own* ref. They were briefly given one between them and
  * the two canvases simply overwrote each other's anchors every frame.
+ *
+ * `sling` is the `.`'s own centre and `slingEdge` a point one radius along
+ * its x, both parented *inside* the dot so they ride the catapult's swing.
+ * Projected, the gap between them is the stone's radius on screen, which is
+ * the only honest way to size a DOM circle standing in for a rendered part of
+ * the mark.
  */
+export type ProbeAnchor = "muzzle" | "impact" | "sling" | "slingEdge";
 export type ProbeRef = MutableRefObject<Partial<
-  Record<"muzzle" | "impact", { x: number; y: number }>
+  Record<ProbeAnchor, { x: number; y: number }>
 > | null>;
 
-/** One pellet in flight. `dx`/`dy` are frozen at the trigger — see `fire`. */
+/**
+ * One projectile in flight. `dx`/`dy` are frozen at the trigger — see `fire`.
+ *
+ * Pellets and the catapult's stone are the same object with different numbers
+ * in it: both are DOM circles crossing the page, so `r` and `ms` carry what
+ * differs and `hits` says which glyph to hurt on arrival.
+ */
 export type Shot = {
   id: number;
   x: number;
   y: number;
   dx: number;
   dy: number;
+  /** Radius in CSS px. */
+  r: number;
+  /** Flight time in ms. */
+  ms: number;
+  /** Which glyph this is aimed at. */
+  hits: "b" | "t";
 };

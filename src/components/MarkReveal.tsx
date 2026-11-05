@@ -3,7 +3,14 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { PELLET_MS, PELLET_PX, type ProbeRef, type Shot } from "@/lib/mark-hit";
+import {
+  KNOCK_SLING,
+  PELLET_MS,
+  PELLET_PX,
+  SLING_MS,
+  type ProbeRef,
+  type Shot,
+} from "@/lib/mark-hit";
 
 /**
  * The 3D mark, cut in half and sliding out from behind the profile block into
@@ -112,33 +119,6 @@ const Model3D = dynamic(() => import("@/components/Model3D"), { ssr: false });
 const MIN_VW = 1180;
 
 /**
- * What a hit on either glyph does: go to the top of the profile.
- *
- * **This is a function because the anchor that used to do it is gone** — see
- * the note on the box below. Replacing `href="/#top"` with
- * `location.assign("/#top")` would have been the literal translation and is
- * subtly worse: assigning a URL whose hash is already current doesn't
- * re-scroll, so a second hit would do nothing on a page the reader had
- * scrolled back down.
- *
- * So on `/` it scrolls and keeps the hash in the address bar in step, and
- * anywhere else it is a real navigation. `scrollTo` is called without
- * `behavior`, which leaves it to the CSS `scroll-behavior` on `html` — that's
- * what keeps the `prefers-reduced-motion` opt-out there working rather than
- * hardcoding smooth here and overriding it.
- */
-function goTop() {
-  if (window.location.pathname !== "/") {
-    window.location.assign("/#top");
-    return;
-  }
-  window.scrollTo({ top: 0 });
-  if (window.location.hash !== "#top") {
-    window.history.replaceState(null, "", "/#top");
-  }
-}
-
-/**
  * The pellets, in flight across the whole viewport.
  *
  * **Portalled to `document.body`, which is not optional.** The box each half
@@ -164,7 +144,7 @@ function Pellets({
   onLand,
 }: {
   shots: Shot[];
-  onLand: (id: number) => void;
+  onLand: (id: number, hits: "b" | "t") => void;
 }) {
   const [host, setHost] = useState<HTMLElement | null>(null);
   useEffect(() => setHost(document.body), []);
@@ -185,7 +165,7 @@ function Pellet({
   onLand,
 }: {
   shot: Shot;
-  onLand: (id: number) => void;
+  onLand: (id: number, hits: "b" | "t") => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -196,12 +176,12 @@ function Pellet({
         { transform: "translate3d(0,0,0)" },
         { transform: `translate3d(${shot.dx}px, ${shot.dy}px, 0)` },
       ],
-      { duration: PELLET_MS, easing: "linear", fill: "forwards" },
+      { duration: shot.ms, easing: "linear", fill: "forwards" },
     );
     let live = true;
     anim.finished
       .then(() => {
-        if (live) onLand(shot.id);
+        if (live) onLand(shot.id, shot.hits);
       })
       .catch(() => {});
     return () => {
@@ -218,10 +198,10 @@ function Pellet({
       ref={ref}
       className="absolute rounded-full bg-pellet"
       style={{
-        left: shot.x - PELLET_PX / 2,
-        top: shot.y - PELLET_PX / 2,
-        width: PELLET_PX,
-        height: PELLET_PX,
+        left: shot.x - shot.r,
+        top: shot.y - shot.r,
+        width: shot.r * 2,
+        height: shot.r * 2,
       }}
     />
   );
@@ -240,15 +220,18 @@ function Half({
   hitAt,
   probeRef,
   onFire,
+  dotGone,
 }: {
   side: "left" | "right";
   open: boolean;
   onReady: () => void;
-  /** Right half only: timestamp of the pellet that just landed. */
+  /** Timestamp of the projectile that just landed on this glyph. */
   hitAt?: number;
   probeRef?: ProbeRef;
-  /** Left half only: the gun went off. */
+  /** This half's weapon went off. Both halves have one now. */
   onFire?: () => void;
+  /** Right half only: the stone is mid-flight, so the `.` isn't drawn. */
+  dotGone?: boolean;
 }) {
   const right = side === "right";
 
@@ -273,7 +256,15 @@ function Half({
    */
   const [armed, setArmed] = useState(false);
   const [popAt, setPopAt] = useState<number>();
-  const gun = !!onFire;
+  /*
+   * Both halves are armed now — the `b` is a gun and the `t.` a catapult —
+   * so what used to be "is this the gun half" is just "does it have a
+   * weapon", and the side decides which one. The `t.` gave up its home link to get
+   * it: a glyph that fires cannot also navigate, or every throw leaves the
+   * page. Escape still dismisses the reveal, which is the way out.
+   */
+  const armable = !!onFire;
+  const weapon = right ? "catapult" : "gun";
   /*
    * Raised above the content once it has arrived — see the note on the
    * wrapper below. Separate from `open` because the two happen a slide apart.
@@ -361,17 +352,18 @@ function Half({
         canvas to raycast at all. What changed is that landing one no longer
         means anything unless it hits the mark.
 
-        Still the nav's home target while the gesture is up, now via
-        `goTop()` — same `/#top`, same reason: `top` is a fragment the spec
-        resolves to the document top, so it lands without the ~56px jolt
-        `#profile` caused. Escape still dismisses, so this isn't the only way
-        out.
+        **The reveal has no home link any more, and that is the cost of the
+        second weapon.** The `b` gave its click to the gun and the `t.` has
+        now given its click to the catapult, so there is no glyph left to
+        carry `/#top`. Escape dismisses the whole thing, the nav's own `bt.`
+        already links home, and a click that both threw a stone and navigated
+        would be neither.
       */}
       <div
         onTransitionEnd={() => setSettled(true)}
-        onPointerLeave={gun ? () => setArmed(false) : undefined}
+        onPointerLeave={armable ? () => setArmed(false) : undefined}
         onClick={
-          gun
+          armable
             ? () => {
                 if (!armed) return;
                 setPopAt(performance.now());
@@ -397,21 +389,20 @@ function Half({
           x already turn symmetrically — each toward the cursor. See the note
           there; negating one half's yaw was tried and did the opposite.
         */}
-        {/*
-          The `b` no longer navigates — it is the gun, and `goTop` on it would
-          scroll the page to the top on every shot. The `t.` keeps the home
-          link, so the gesture still has one.
-        */}
         <Model3D
           mode="follow"
           glyph={right ? "t" : "b"}
           zoom={1.35}
           onReady={onReady}
-          onPick={gun ? undefined : goTop}
-          onArm={gun ? () => setArmed(true) : undefined}
-          roll={gun ? armed : undefined}
-          popAt={gun ? popAt : undefined}
+          onArm={armable ? () => setArmed(true) : undefined}
+          pose={weapon}
+          roll={armable ? armed : undefined}
+          popAt={armable ? popAt : undefined}
           hitAt={hitAt}
+          /* Each is hit from the other's side, so the shoves run opposite. */
+          knockDir={right ? 1 : -1}
+          knockScale={right ? 1 : KNOCK_SLING}
+          dotGone={dotGone}
           probeRef={probeRef}
           className="h-full w-full"
         />
@@ -455,7 +446,16 @@ export default function MarkReveal() {
   const targetProbe: ProbeRef = useRef(null);
   const nextId = useRef(0);
   const [shots, setShots] = useState<Shot[]>([]);
-  const [hitAt, setHitAt] = useState<number>();
+  /* One timestamp per glyph: each is now both a weapon and a target. */
+  const [hitT, setHitT] = useState<number>();
+  const [hitB, setHitB] = useState<number>();
+  /*
+   * Whether the catapult's stone is away. The `.` is a real part of the `t.`,
+   * so while it is crossing the page it must not also be on the glyph — and
+   * with no stone there is nothing to throw, which is what stops the catapult
+   * being spammable the way the gun is. It comes back on landing.
+   */
+  const [dotGone, setDotGone] = useState(false);
 
   /*
    * No pellets and no flash under `prefers-reduced-motion`, the same call
@@ -514,13 +514,12 @@ export default function MarkReveal() {
    * sampled at the trigger and not tracked. A pellet that homed would be a
    * missile rather than a bullet, and the `t.` would never be missable.
    */
-  const fire = () => {
-    if (reduced) return;
-    /* One ref per half: both canvases project their own anchors, so a shared
-       ref would have each overwriting the other's every frame. */
-    const from = gunProbe.current?.muzzle;
-    const to = targetProbe.current?.impact;
-    if (!from || !to) return;
+  const launch = (
+    from: { x: number; y: number } | undefined,
+    to: { x: number; y: number } | undefined,
+    rest: { r: number; ms: number; hits: "b" | "t" },
+  ) => {
+    if (!from || !to) return false;
     setShots((s) => [
       ...s,
       {
@@ -529,8 +528,40 @@ export default function MarkReveal() {
         y: from.y,
         dx: to.x - from.x,
         dy: to.y - from.y,
+        ...rest,
       },
     ]);
+    return true;
+  };
+
+  const fireGun = () => {
+    if (reduced) return;
+    /* One ref per half: both canvases project their own anchors, so a shared
+       ref would have each overwriting the other's every frame. */
+    launch(gunProbe.current?.muzzle, targetProbe.current?.impact, {
+      r: PELLET_PX / 2,
+      ms: PELLET_MS,
+      hits: "t",
+    });
+  };
+
+  /*
+   * The catapult: throw the `.` itself at the `b`.
+   *
+   * **The stone's radius is projected, not assumed.** `sling` and `slingEdge`
+   * are a radius apart inside the dot, so the gap between them on screen is
+   * what the `.` actually renders at — which changes with the canvas, and
+   * would be a guess at any fixed number. Falling back to the pellet's size
+   * would be visibly wrong: the `.` is about four times a pellet across.
+   */
+  const fireCatapult = () => {
+    if (reduced || dotGone) return;
+    const from = targetProbe.current?.sling;
+    const edge = targetProbe.current?.slingEdge;
+    const to = gunProbe.current?.impact;
+    if (!from || !edge) return;
+    const r = Math.hypot(edge.x - from.x, edge.y - from.y) || PELLET_PX / 2;
+    if (launch(from, to, { r, ms: SLING_MS, hits: "b" })) setDotGone(true);
   };
 
   /*
@@ -546,12 +577,19 @@ export default function MarkReveal() {
    * as one. Nudging past the previous value keeps it strictly increasing, so
    * no landing is ever silently swallowed.
    */
-  const land = (id: number) => {
+  const land = (id: number, hits: "b" | "t") => {
     setShots((s) => s.filter((x) => x.id !== id));
-    setHitAt((prev) => {
+    const bump = (prev: number | undefined) => {
       const now = performance.now();
       return prev !== undefined && now <= prev ? prev + 0.01 : now;
-    });
+    };
+    if (hits === "t") {
+      setHitT(bump);
+    } else {
+      setHitB(bump);
+      /* The stone is spent: put it back on the `t.`, which fades it in. */
+      setDotGone(false);
+    }
   };
 
   return (
@@ -561,14 +599,17 @@ export default function MarkReveal() {
         open={open}
         onReady={onReady}
         probeRef={gunProbe}
-        onFire={fire}
+        onFire={fireGun}
+        hitAt={hitB}
       />
       <Half
         side="right"
         open={open}
         onReady={onReady}
         probeRef={targetProbe}
-        hitAt={hitAt}
+        onFire={fireCatapult}
+        hitAt={hitT}
+        dotGone={dotGone}
       />
       <Pellets shots={shots} onLand={land} />
     </>
