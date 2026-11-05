@@ -90,26 +90,26 @@ const CHIP_FOUND = "border-link/60 bg-link/10 text-link";
 /**
  * How long a run lasts. All 37 inside it or the chips go out.
  *
- * Bradley's number, and it has moved: 3s, then 2.5, then 2.2, then back to
- * 2.5. Each value was asked for by name, so don't read the history as a
- * search for the right one — 2.2 worked fine; the difference is taste rather
- * than a measurement.
+ * Bradley's number, and it has moved: 3s, then 2.5, then 2.2, back to 2.5,
+ * and now "another .75 seconds" on top of that. Each value was asked for by
+ * name, so don't read the history as a search for the right one — 2.2 worked
+ * fine; the difference is taste rather than a measurement.
  *
- * At 2.5s that's about 68ms a chip, so it still wants one unbroken sweep.
+ * At 3.25s that's about 88ms a chip, so it still wants one unbroken sweep.
  *
- * **Measured at 37, and the margin is down to ~280ms.** The chips wrap to 13
+ * **Measured at 37, and the margin is now ~1030ms.** The chips wrap to 13
  * rows in the sidebar, so lighting them all is a 2311px serpentine; driven at
- * ~1040px/s they all land in 2220ms of the 2500ms window. (That run was bound
- * by the test harness's ~23ms per synthetic move rather than by pointer speed,
- * so it's an upper bound, not the floor.) The narrowest chip is 34px, which is
- * what sets how coarse a drag can be and still hit every one.
+ * ~1040px/s they all land in 2220ms. (That run was bound by the test
+ * harness's ~23ms per synthetic move rather than by pointer speed, so it's an
+ * upper bound, not the floor.) The narrowest chip is 34px, which is what sets
+ * how coarse a drag can be and still hit every one.
  *
  * **`WINDOW_MS` does not scale and the path does.** Every tag added anywhere
- * in `profile-data` makes this sweep longer against the same 2.5s, so this is
- * the measurement to redo when one is — it's how the egg would go unwinnable
- * without anything here looking wrong.
+ * in `profile-data` makes this sweep longer against the same window, so this
+ * is the measurement to redo when one is — it's how the egg would go
+ * unwinnable without anything here looking wrong.
  */
-const WINDOW_MS = 2500;
+const WINDOW_MS = 3250;
 
 export default function TechStack({ items }: { items: string[] }) {
   const { unlocked, unlock } = usePlayMode();

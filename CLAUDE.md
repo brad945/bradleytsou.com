@@ -1283,17 +1283,18 @@ Four details worth keeping:
   with `--autoplay-policy=no-user-gesture-required`, and nothing thrown
   either way. The confetti and the unlock don't depend on it.
 
-**All 37 have to be lit within 2.5 seconds**, at Bradley's request, or the
-run ends. His number, and it has moved — 3s, then 2.5, then 2.2, then back
-to 2.5 — with every value asked for by name, so the history isn't a search
-for the right one and nothing here was wrong with 2.2. At 2.5 that's about
-68ms a chip, so it takes one unbroken sweep.
+**All 37 have to be lit within 3.25 seconds**, at Bradley's request, or the
+run ends. His number, and it has moved — 3s, then 2.5, then 2.2, back to
+2.5, then "another .75 seconds" to 3.25 — with every value asked for by
+name, so the history isn't a search for the right one and nothing here was
+wrong with 2.2. At 3.25 that's about 88ms a chip, so it still takes one
+unbroken sweep.
 
-**Re-measured at 37, and the headroom is thin.** In the sidebar the chips
-wrap to **13 rows**, so the sweep that lights them all is a 2311px
-serpentine rather than anything "straight across". Driven at ~1040px/s —
-an ordinary drag — all 37 light in **2220ms of the 2500ms window**, so it
-still clears, by about 280ms. Note that run was bound by the harness's
+**Measured at 37.** In the sidebar the chips wrap to **13 rows**, so the
+sweep that lights them all is a 2311px serpentine rather than anything
+"straight across". Driven at ~1040px/s — an ordinary drag — all 37 light in
+**2220ms**, so against the 3250ms window there is now about a second in
+hand where there used to be 280ms. Note that run was bound by the harness's
 ~23ms per synthetic `mouseMoved`, not by the pointer speed, so 2220ms is an
 upper bound on the time rather than the floor; a human dragging faster has
 more room than that. The narrowest chip is 34px, which is what sets how
@@ -1301,11 +1302,12 @@ coarse a drag can be and still hit every one — 24px steps land all 37,
 16px steps are too slow to finish in time.
 
 **This is the figure to re-measure when a tag is added**, and it's the one
-that can quietly go impossible: `WINDOW_MS` is Bradley's 2.5s and doesn't
-scale, while the path grows with every chip. The old note said ~1.2s for a
-"straight" sweep at 34 chips; that was a faster drag over a shorter path,
-and the word *straight* was always wrong for a 13-row wrap. The clock starts on the first chip rather than on load, so it
-isn't already running before anyone has noticed the egg exists.
+that can quietly go impossible: `WINDOW_MS` doesn't scale, while the path
+grows with every chip. The old note said ~1.2s for a "straight" sweep at 34
+chips; that was a faster drag over a shorter path, and the word *straight*
+was always wrong for a 13-row wrap. The clock starts on the first chip
+rather than on load, so it isn't already running before anyone has noticed
+the egg exists.
 
 **Running out doesn't drop them all at once.** They go out one at a time,
 each at the same offset into the unwind that it was lit at into the run —
