@@ -85,6 +85,44 @@ export const PELLET_PX = 14;
 export const SLING_MS = 620;
 export const KNOCK_SLING = 2.5;
 
+/**
+ * How high the stone vaults, as a fraction of the gap it crosses.
+ *
+ * "shouldn't be a straight line to the 'b' like the bullets" — a catapult
+ * lobs, and the arc is most of what separates the two weapons once the
+ * projectile has left. A pellet keeps `arc` at 0 and stays flat.
+ *
+ * The flight is a real ballistic path rather than a curve that looks like
+ * one: constant horizontal speed, parabolic vertical. That falls out of
+ * sampling `4t(1-t)` at evenly spaced keyframes, which is also why the
+ * stone is slowest at the top of its arc without anything easing it.
+ */
+export const VAULT = 0.22;
+
+/** Minimum gap kept between the top of the arc and the top of the window. */
+export const VAULT_HEADROOM = 24;
+
+/**
+ * How long a keyboard shot waits for the weapon to finish rolling.
+ *
+ * A click can only land on an armed weapon, because arming is what a hover
+ * does. A keypress has no hover to arm it, so it does both — and firing in
+ * the same frame would launch from a muzzle that is still swinging into
+ * place, which on the `b` means a pellet leaving out of the top of the
+ * glyph. Roughly the roll's own ease, so the shot leaves a cocked weapon.
+ */
+export const ROLL_LEAD_MS = 200;
+
+/**
+ * How long a weapon armed by its key stays cocked afterwards.
+ *
+ * A hover disarms on `pointerleave`; a keypress has nothing equivalent, so
+ * without this the glyph would stay rolled for the rest of the session. It
+ * is skipped while the pointer is in the box, which would otherwise unroll
+ * the weapon under a pointer that is still arming it.
+ */
+export const KEY_DISARM_MS = 1500;
+
 /** How long the `.` takes to fade back in once the stone has landed. */
 export const DOT_FADE_MS = 420;
 
@@ -128,6 +166,8 @@ export type Shot = {
   r: number;
   /** Flight time in ms. */
   ms: number;
+  /** Apex rise in px above the straight line. 0 is a bullet's flat path. */
+  arc: number;
   /** Which glyph this is aimed at. */
   hits: "b" | "t";
 };

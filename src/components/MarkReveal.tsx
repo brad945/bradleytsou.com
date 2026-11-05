@@ -4,10 +4,14 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  KEY_DISARM_MS,
   KNOCK_SLING,
   PELLET_MS,
   PELLET_PX,
+  ROLL_LEAD_MS,
   SLING_MS,
+  VAULT,
+  VAULT_HEADROOM,
   type ProbeRef,
   type Shot,
 } from "@/lib/mark-hit";
@@ -160,6 +164,34 @@ function Pellets({
   );
 }
 
+/** How many samples the vault is drawn with. Flat shots need two. */
+const ARC_STEPS = 24;
+
+/**
+ * The flight path, as keyframes.
+ *
+ * A bullet is two frames and a straight line. The stone is a real ballistic
+ * arc: horizontal position is linear in time and vertical carries `4t(1-t)`
+ * on top of it, which is the parabola through both ends with its apex at the
+ * midpoint. Sampling it at evenly spaced keyframes under `linear` easing is
+ * what makes the stone visibly slowest over the top without anything easing
+ * it — that is the shape of the maths, not a curve chosen to look like it.
+ */
+function path(shot: Shot): Keyframe[] {
+  if (!shot.arc) {
+    return [
+      { transform: "translate3d(0,0,0)" },
+      { transform: `translate3d(${shot.dx}px, ${shot.dy}px, 0)` },
+    ];
+  }
+  return Array.from({ length: ARC_STEPS + 1 }, (_, i) => {
+    const t = i / ARC_STEPS;
+    const x = shot.dx * t;
+    const y = shot.dy * t - shot.arc * 4 * t * (1 - t);
+    return { transform: `translate3d(${x}px, ${y}px, 0)` };
+  });
+}
+
 function Pellet({
   shot,
   onLand,
@@ -171,13 +203,11 @@ function Pellet({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const anim = el.animate(
-      [
-        { transform: "translate3d(0,0,0)" },
-        { transform: `translate3d(${shot.dx}px, ${shot.dy}px, 0)` },
-      ],
-      { duration: shot.ms, easing: "linear", fill: "forwards" },
-    );
+    const anim = el.animate(path(shot), {
+      duration: shot.ms,
+      easing: "linear",
+      fill: "forwards",
+    });
     let live = true;
     anim.finished
       .then(() => {
@@ -228,8 +258,8 @@ function Half({
   /** Timestamp of the projectile that just landed on this glyph. */
   hitAt?: number;
   probeRef?: ProbeRef;
-  /** This half's weapon went off. Both halves have one now. */
-  onFire?: () => void;
+  /** Fire this half's weapon. Returns false if it had nothing to fire. */
+  onFire?: () => boolean;
   /** Right half only: the stone is mid-flight, so the `.` isn't drawn. */
   dotGone?: boolean;
 }) {
@@ -265,6 +295,85 @@ function Half({
    */
   const armable = !!onFire;
   const weapon = right ? "catapult" : "gun";
+
+  /*
+   * Whether the pointer is anywhere in this half's box. Only the keyboard
+   * path reads it — see the disarm timer below.
+   */
+  const inBox = useRef(false);
+
+  /** `armed`, readable from an event handler without re-binding it. */
+  const isArmed = useRef(false);
+  isArmed.current = armed;
+
+  /*
+   * Pull the trigger, and only pose if something actually left. An empty
+   * catapult used to swing its arm for nothing; now `onFire` says whether it
+   * fired and the squash or the swing follows that rather than the click.
+   */
+  const trigger = useRef<() => void>(() => {});
+  trigger.current = () => {
+    if (onFire?.()) setPopAt(performance.now());
+  };
+
+  /*
+   * **`b` fires the gun and `t` the catapult**, at Bradley's request — "for
+   * ease of clicking". The listener lives here rather than in the parent
+   * because everything it needs is local: this half already knows its glyph,
+   * its armed state and its own weapon.
+   *
+   * Three details it would be wrong without. A keypress has no hover, so it
+   * has to arm as well as fire, and it waits `ROLL_LEAD_MS` for the roll
+   * when it was the thing that armed it — otherwise the `b` launches from a
+   * muzzle still swinging up from the top of the glyph. Auto-repeat is
+   * ignored, because holding the key down is ~30 shots a second rather than
+   * a fast player. And a modifier means the browser's own shortcut, which
+   * `Cmd-T` makes obvious.
+   *
+   * It is bound to the window rather than to the box: the reveal takes no
+   * focus, and the box is `aria-hidden` chrome that nothing can tab into, so
+   * there is no element here for a key event to arrive at.
+   */
+  useEffect(() => {
+    if (!armable) return;
+    const key = right ? "t" : "b";
+    let shot: number | undefined;
+    let disarm: number | undefined;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key.toLowerCase() !== key) return;
+      /* Never steal a key from somewhere it is being typed. */
+      const el = e.target as HTMLElement | null;
+      if (
+        el &&
+        (el.isContentEditable ||
+          /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName ?? ""))
+      )
+        return;
+
+      window.clearTimeout(disarm);
+      window.clearTimeout(shot);
+      /* Read the arm state off a ref, never from inside a state updater: an
+         updater must be pure, and StrictMode runs it twice — which would be
+         two shots per press in development and one in production. */
+      shot = window.setTimeout(
+        () => trigger.current(),
+        isArmed.current ? 0 : ROLL_LEAD_MS,
+      );
+      setArmed(true);
+      disarm = window.setTimeout(() => {
+        if (!inBox.current) setArmed(false);
+      }, KEY_DISARM_MS);
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.clearTimeout(shot);
+      window.clearTimeout(disarm);
+    };
+  }, [armable, right]);
   /*
    * Raised above the content once it has arrived — see the note on the
    * wrapper below. Separate from `open` because the two happen a slide apart.
@@ -361,13 +470,19 @@ function Half({
       */}
       <div
         onTransitionEnd={() => setSettled(true)}
-        onPointerLeave={armable ? () => setArmed(false) : undefined}
+        onPointerEnter={armable ? () => (inBox.current = true) : undefined}
+        onPointerLeave={
+          armable
+            ? () => {
+                inBox.current = false;
+                setArmed(false);
+              }
+            : undefined
+        }
         onClick={
           armable
             ? () => {
-                if (!armed) return;
-                setPopAt(performance.now());
-                onFire?.();
+                if (armed) trigger.current();
               }
             : undefined
         }
@@ -517,7 +632,7 @@ export default function MarkReveal() {
   const launch = (
     from: { x: number; y: number } | undefined,
     to: { x: number; y: number } | undefined,
-    rest: { r: number; ms: number; hits: "b" | "t" },
+    rest: { r: number; ms: number; hits: "b" | "t"; arc: number },
   ) => {
     if (!from || !to) return false;
     setShots((s) => [
@@ -535,13 +650,15 @@ export default function MarkReveal() {
   };
 
   const fireGun = () => {
-    if (reduced) return;
+    if (reduced) return false;
     /* One ref per half: both canvases project their own anchors, so a shared
        ref would have each overwriting the other's every frame. */
-    launch(gunProbe.current?.muzzle, targetProbe.current?.impact, {
+    return launch(gunProbe.current?.muzzle, targetProbe.current?.impact, {
       r: PELLET_PX / 2,
       ms: PELLET_MS,
       hits: "t",
+      /* Flat. A bullet goes where it is pointed. */
+      arc: 0,
     });
   };
 
@@ -555,13 +672,27 @@ export default function MarkReveal() {
    * would be visibly wrong: the `.` is about four times a pellet across.
    */
   const fireCatapult = () => {
-    if (reduced || dotGone) return;
+    if (reduced || dotGone) return false;
     const from = targetProbe.current?.sling;
     const edge = targetProbe.current?.slingEdge;
     const to = gunProbe.current?.impact;
-    if (!from || !edge) return;
+    if (!from || !edge || !to) return false;
     const r = Math.hypot(edge.x - from.x, edge.y - from.y) || PELLET_PX / 2;
-    if (launch(from, to, { r, ms: SLING_MS, hits: "b" })) setDotGone(true);
+    /*
+     * The vault, clamped so the top of the arc stays on screen. The rise is a
+     * fraction of the span it crosses, so it scales with the window instead
+     * of being a number tuned against one; the clamp only bites on a short
+     * window, where a proportional arc would otherwise leave through the top
+     * of a layer that is `fixed inset-0` and therefore clips it.
+     */
+    const apex = (from.y + to.y) / 2;
+    const arc = Math.max(
+      0,
+      Math.min(Math.abs(to.x - from.x) * VAULT, apex - VAULT_HEADROOM),
+    );
+    if (!launch(from, to, { r, ms: SLING_MS, hits: "b", arc })) return false;
+    setDotGone(true);
+    return true;
   };
 
   /*

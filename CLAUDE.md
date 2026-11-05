@@ -1560,6 +1560,17 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   glyphs now spend their click on a weapon, so Escape and the nav's own `bt.`
   are the way home. The 2.5x is honoured where the gutter allows: measured,
   it is 2.5x at 1920 and ~1.5x at 1440, where the canvas runs out first.
+  The stone **vaults** rather than flying flat — a catapult lobs, and the arc
+  is most of what distinguishes the two weapons once the projectile is away.
+  It is a real ballistic path (constant horizontal speed, `4t(1-t)` on the
+  vertical, sampled as keyframes), with the rise a fraction of the span so it
+  scales with the window, clamped to stay inside a layer that clips.
+  **`b` and `t` fire their own glyph from the keyboard**, at Bradley's
+  request. A keypress has no hover to arm with, so it arms *and* fires, and
+  waits `ROLL_LEAD_MS` for the roll when it was the thing that armed — firing
+  in the same frame launches from a muzzle still swinging into place. It also
+  auto-disarms after `KEY_DISARM_MS` unless the pointer is in the box, since
+  there is no `pointerleave` to end a keyboard arm.
   Three more parts are load-bearing and documented where they live. The
   arm-on-glyph / release-on-box-leave split in `MarkReveal`: a
   geometry-only hover **loops**, because the roll moves the glyph out from
