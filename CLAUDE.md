@@ -1525,7 +1525,20 @@ to 7" is a real fraction of a real year. Apply that test to any new meter.
   the right side of the rule for the same reason the rest do: nothing moves
   until you point at it, and nothing fires unless you click. No pellets and
   no flash under `prefers-reduced-motion`.
-  Three parts of it are load-bearing and documented where they live. The
+  **Hits stack, through Apple's rubber-band law.** Bradley asked for the
+  `t.` to go further the more it's shot, "by less and less each time", and
+  named overscroll as the reference — so `KNOCK_CEILING` / `KNOCK_FIRST` in
+  `Model3D` feed UIScrollView's own hyperbola and the accumulator is the
+  glyph's live displacement rather than a hit counter, which is what makes
+  it reset itself: spam and each shot buys less, wait half a second and the
+  next is a full shove. **Both numbers are capped by the canvas**, and that
+  is why the first hit got smaller when stacking landed. Measured off a
+  parked render: the `t.` ends at x=186 of a 225px canvas at rest, a world
+  unit is ~54px, so there are 39px to its right. The old flat 0.42 was 23 of
+  those 39, leaving stacking nowhere to go; 0.32 → 0.62 is 17px → 33px with
+  6px of margin for the `Float` bob and the follow yaw. Re-measure before
+  raising either.
+  Three more parts are load-bearing and documented where they live. The
   arm-on-glyph / release-on-box-leave split in `MarkReveal`: a
   geometry-only hover **loops**, because the roll moves the glyph out from
   under the pointer that caused it, which is the same trap the solids hit

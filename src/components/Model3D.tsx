@@ -423,8 +423,59 @@ function ExtrudedMark({ glyph, hitAt }: { glyph?: Glyph; hitAt?: number }) {
   );
 }
 
-/** How far the hit shoves the glyph, in world units, before it eases back. */
-const KNOCKBACK = 0.42;
+/**
+ * The knockback, in world units: how far one hit shoves the glyph, and how far
+ * a run of them can stack before it stops going anywhere.
+ *
+ * **Hits accumulate, but through a rubber band rather than by adding up.**
+ * Bradley asked for the `t.` to keep getting pushed further the more it's
+ * shot, "by less and less each time", and named Apple's overscroll as the
+ * reference — so this is Apple's own law rather than a curve shaped to look
+ * like it. UIScrollView maps a raw drag `x` onto a damped offset with
+ * `(1 - 1/(x·c/d + 1))·d`, which is the hyperbola `x·d/(d + x/c)`: linear in
+ * the small, asymptotic to the dimension `d`, and every increment smaller than
+ * the one before. Here `d` is `KNOCK_CEILING` and `c` is folded into
+ * `KNOCK_STEP` below, so the two knobs are the two things anyone would
+ * actually want to set — how far one hit goes, and how far they can ever go.
+ *
+ * The accumulator is the glyph's **live displacement**, not a hit counter: a
+ * hit reads where the `t.` actually is, converts that back to raw band
+ * stretch, adds a step, and converts forward again. That is what a rubber band
+ * does, and it means the state resets itself. Spam the gun and each hit buys
+ * less because the band is already stretched; let it settle for half a second
+ * and the next shot is a full shove again, with nothing to decay or clear.
+ *
+ * From rest the sequence runs 0.32, 0.42, 0.47, 0.50, 0.52 … → 0.62, or 17px,
+ * 23, 26, 27, 28 … → 33. Most of the growth is in the first three shots,
+ * which is where a burst of clicks actually lands.
+ *
+ * **Both numbers are bounded by the canvas, not by taste, and that is why the
+ * first hit got smaller.** Each half is 225px wide and clips its own
+ * contents. Measured off a render with the shove parked: the `t.` ends at
+ * x=186 at rest and x=222 when parked at 0.67, so a world unit is ~54px and
+ * there are 39px of room to its right. The old flat 0.42 was 23px of those
+ * 39 — nearly all of it — so stacking on top of it had nowhere to go and the
+ * growth would have been a pixel or two a shot. Dropping the first hit to
+ * 0.32 buys the headroom that makes the escalation visible at all. The 6px
+ * left over at the ceiling is the margin for the `Float` bob and the
+ * up-to-40° follow yaw; raising either number without re-measuring those is
+ * how the glyph ends up with a flat edge.
+ */
+const KNOCK_CEILING = 0.62;
+
+/** What one hit from rest is worth. Was a flat 0.42 for every hit. */
+const KNOCK_FIRST = 0.32;
+
+/** Band stretch -> visible offset, and back. Inverses, hence the shared form. */
+const stretch = (raw: number) => (raw * KNOCK_CEILING) / (KNOCK_CEILING + raw);
+const unstretch = (d: number) =>
+  (d * KNOCK_CEILING) / Math.max(KNOCK_CEILING - d, 1e-6);
+
+/**
+ * How much raw stretch one pellet adds. Derived rather than set, so that
+ * `KNOCK_FIRST` means what it says however the ceiling moves.
+ */
+const KNOCK_STEP = unstretch(KNOCK_FIRST);
 
 /**
  * Tints the shared material white then red after a hit, and nothing otherwise.
@@ -501,16 +552,33 @@ function Knockback({
   children: React.ReactNode;
 }) {
   const ref = useRef<THREE.Group>(null);
+  /* This hit's peak. Set once when `hitAt` changes — see `KNOCK_CEILING`. */
+  const seen = useRef<number>();
+  const amp = useRef(0);
+
   useFrame((_, delta) => {
     if (!ref.current) return;
+    if (hitAt !== seen.current) {
+      seen.current = hitAt;
+      /*
+       * Stack onto what's still on screen, not onto the last hit's peak. The
+       * position lags its target by design (the lerp below), so reading it is
+       * also what makes a shot that lands late in the decay count for nearly a
+       * full shove while one that lands during the flash counts for little.
+       */
+      amp.current = hitAt
+        ? stretch(unstretch(ref.current.position.x) + KNOCK_STEP)
+        : 0;
+    }
     const t = hitAt ? performance.now() - hitAt : Infinity;
     /* Full shove on the white frame, then eased back over the red. */
     const target =
       t < 0 || t > HIT_RED_MS
         ? 0
         : t < HIT_WHITE_MS
-          ? KNOCKBACK
-          : KNOCKBACK * (1 - (t - HIT_WHITE_MS) / (HIT_RED_MS - HIT_WHITE_MS));
+          ? amp.current
+          : amp.current *
+            (1 - (t - HIT_WHITE_MS) / (HIT_RED_MS - HIT_WHITE_MS));
     const k = Math.min(1, delta * 12);
     ref.current.position.x += (target - ref.current.position.x) * k;
   });
